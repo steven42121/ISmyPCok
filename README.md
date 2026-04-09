@@ -40,6 +40,12 @@ cmake --build build --config Release --target pc_benchmark
 .\build\Release\pc_benchmark.exe -f ".*" -q -o json
 ```
 
+## 自动构建 Release（GitHub Actions）
+
+- 发布 GitHub Release（`published`）后，仓库会自动触发 `.github/workflows/release.yml`。
+- 工作流会在 `windows-latest` 构建 `Release` 版本，并上传压缩包到当前 Release Assets：
+  - `pc_benchmark-<tag>-windows-x64.zip`
+
 ## 第三方依赖说明
 
 `CppBenchmark` 本仓库本身依赖额外模块（`Catch2` / `zlib` / `HdrHistogram` / `cpp-optparse` 以及 `cmake` 脚本）。  
