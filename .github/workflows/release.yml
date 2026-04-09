@@ -1,0 +1,45 @@
+name: Build Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare third-party dependencies
+        shell: pwsh
+        run: ./scripts/fetch_3rd_party.ps1
+
+      - name: Configure (Release)
+        shell: pwsh
+        run: cmake -S . -B build -A x64
+
+      - name: Build (Release)
+        shell: pwsh
+        run: cmake --build build --config Release --target pc_benchmark
+
+      - name: Package artifact
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.release.tag_name }}"
+          $zipName = "pc_benchmark-$tag-windows-x64.zip"
+          Compress-Archive -Path @(
+            "build/Release/pc_benchmark.exe",
+            "README.md",
+            "LICENSE"
+          ) -DestinationPath $zipName -Force
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: pc_benchmark-${{ github.event.release.tag_name }}-windows-x64.zip
