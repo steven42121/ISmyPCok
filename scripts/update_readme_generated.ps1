@@ -1,5 +1,6 @@
 param(
-    [string]$ReadmePath = "README.md",
+    [string]$ReadmePath = "",
+    [string[]]$ReadmePaths = @("README.zh-CN.md", "README.en.md"),
     [string]$CliPath = ".\build\Release\ispcok_cli.exe"
 )
 
@@ -54,19 +55,29 @@ function Write-FileWithRetry {
     }
 }
 
-if (-not (Test-Path $ReadmePath)) {
-    throw "README not found: $ReadmePath"
-}
 if (-not (Test-Path $CliPath)) {
     throw "CLI not found: $CliPath. Build first: cmake --build build --config Release --target ispcok_cli"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ReadmePath)) {
+    $ReadmePaths = @($ReadmePath)
+}
+
+if (-not $ReadmePaths -or $ReadmePaths.Count -eq 0) {
+    throw "No README targets specified"
 }
 
 $modules = & $CliPath list-modules | Where-Object { $_ -and $_.Trim().Length -gt 0 } | ForEach-Object { $_.Trim() }
 $scenarios = & $CliPath list-scenarios | Where-Object { $_ -and $_.Trim().Length -gt 0 } | ForEach-Object { $_.Trim() }
 
-$updated = Get-Content -Raw -Path $ReadmePath
-$updated = Update-MarkedBlock -Content $updated -StartMarker "<!-- MODULE_LIST_START -->" -EndMarker "<!-- MODULE_LIST_END -->" -Items $modules -Label "modules"
-$updated = Update-MarkedBlock -Content $updated -StartMarker "<!-- SCENARIO_LIST_START -->" -EndMarker "<!-- SCENARIO_LIST_END -->" -Items $scenarios -Label "scenarios"
-Write-FileWithRetry -Path $ReadmePath -Content $updated
+foreach ($targetReadme in $ReadmePaths) {
+    if (-not (Test-Path $targetReadme)) {
+        throw "README not found: $targetReadme"
+    }
 
-Write-Host "Updated README generated blocks from $CliPath"
+    $updated = Get-Content -Raw -Path $targetReadme
+    $updated = Update-MarkedBlock -Content $updated -StartMarker "<!-- MODULE_LIST_START -->" -EndMarker "<!-- MODULE_LIST_END -->" -Items $modules -Label "modules"
+    $updated = Update-MarkedBlock -Content $updated -StartMarker "<!-- SCENARIO_LIST_START -->" -EndMarker "<!-- SCENARIO_LIST_END -->" -Items $scenarios -Label "scenarios"
+    Write-FileWithRetry -Path $targetReadme -Content $updated
+    Write-Host "Updated generated blocks in $targetReadme from $CliPath"
+}
