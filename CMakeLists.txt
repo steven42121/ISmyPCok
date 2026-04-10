@@ -86,6 +86,16 @@ add_executable(pc_benchmark
 target_link_libraries(pc_benchmark PRIVATE cppbenchmark)
 target_include_directories(pc_benchmark PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
+add_executable(ispcok_tests
+    tests/ispcok_tests.cpp
+)
+target_link_libraries(ispcok_tests PRIVATE ispcok_core)
+target_include_directories(ispcok_tests
+    PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
+
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/mock_gpu_plugin.cpp")
     add_library(ispcok_plugin_sample_gpu MODULE
         samples/plugins/mock_gpu_plugin.cpp
@@ -98,11 +108,16 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/mock_gpu_plugin.cpp")
 endif()
 
 if(MSVC)
+    target_compile_options(ispcok_tests PRIVATE /W4 /permissive-)
     target_compile_options(ispcok_cli PRIVATE /W4 /permissive-)
     target_compile_options(ispcok_capi PRIVATE /W4 /permissive-)
     target_compile_options(pc_benchmark PRIVATE /W4 /permissive-)
 else()
+    target_compile_options(ispcok_tests PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(ispcok_cli PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(ispcok_capi PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(pc_benchmark PRIVATE -Wall -Wextra -Wpedantic)
 endif()
+
+enable_testing()
+add_test(NAME ispcok_tests COMMAND ispcok_tests)

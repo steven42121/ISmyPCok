@@ -26,13 +26,9 @@ jobs:
         shell: pwsh
         run: cmake --build build --config Release --target ispcok_cli
 
-      - name: Regenerate module list block
+      - name: Regenerate README generated blocks
         shell: pwsh
-        run: ./scripts/update_readme_modules.ps1
-
-      - name: Regenerate scenario list block
-        shell: pwsh
-        run: ./scripts/update_readme_scenarios.ps1
+        run: ./scripts/update_readme_generated.ps1
 
       - name: CLI smoke tests
         shell: pwsh
@@ -45,6 +41,6 @@ jobs:
         run: |
           git diff -- README.md
           if (-not [string]::IsNullOrEmpty((git status --porcelain README.md))) {
-            Write-Error "README.md module list is out of date. Run ./scripts/update_readme_modules.ps1 and commit the result."
+            Write-Error "README.md generated blocks are out of date. Run ./scripts/update_readme_generated.ps1 and commit the result."
             exit 1
           }
