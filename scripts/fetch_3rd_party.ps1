@@ -18,7 +18,7 @@ try {
         git clone --depth 1 --branch devel https://github.com/catchorg/Catch2.git modules/Catch2
     }
     if (-not (Test-Path "modules/cpp-optparse")) {
-        git clone --depth 1 --branch master https://github.com/chronoxor/cpp-optparse.git modules/cpp-optparse
+        git clone --depth 1 --branch main https://github.com/chronoxor/cpp-optparse.git modules/cpp-optparse
     }
     if (-not (Test-Path "modules/HdrHistogram")) {
         git clone --depth 1 --branch main https://github.com/HdrHistogram/HdrHistogram_c.git modules/HdrHistogram
