@@ -26,6 +26,10 @@ jobs:
         shell: pwsh
         run: cmake --build build --config Release --target ispcok_cli
 
+      - name: Build Tests
+        shell: pwsh
+        run: cmake --build build --config Release --target ispcok_tests
+
       - name: Regenerate README generated blocks
         shell: pwsh
         run: ./scripts/update_readme_generated.ps1
@@ -35,6 +39,10 @@ jobs:
         run: |
           .\build\Release\ispcok_cli.exe list-scenarios
           .\build\Release\ispcok_cli.exe run --scenario game_engine
+
+      - name: Run unit tests
+        shell: pwsh
+        run: ctest --test-dir build -C Release --output-on-failure
 
       - name: Assert README is up to date
         shell: pwsh

@@ -92,6 +92,13 @@ cmake --build build-avx512 --config Release --target ispcok_cli
 .\build\Release\ispcok_cli.exe run --scenario game_engine
 ```
 
+## 测试
+
+```powershell
+cmake --build build --config Release --target ispcok_tests
+ctest --test-dir build -C Release --output-on-failure
+```
+
 ## C ABI（SDK）导出函数
 
 头文件：`include/ispcok/capi.h`
@@ -129,4 +136,5 @@ Copy-Item .\build\Release\ispcok_plugin_gpu_vulkan_sample.dll .\plugins\
 ```powershell
 .\scripts\fetch_3rd_party.ps1
 ```
+
 
