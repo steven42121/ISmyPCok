@@ -96,7 +96,7 @@ target_include_directories(ispcok_tests
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/mock_gpu_plugin.cpp")
+if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/mock_gpu_plugin.cpp")
     add_library(ispcok_plugin_sample_gpu MODULE
         samples/plugins/mock_gpu_plugin.cpp
     )
@@ -107,7 +107,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/mock_gpu_plugin.cpp")
     )
 endif()
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_null_metrics.cpp")
+if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_null_metrics.cpp")
     add_library(ispcok_plugin_bad_null_metrics MODULE
         samples/plugins/bad_plugin_null_metrics.cpp
     )
@@ -118,7 +118,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_null_metrics.c
     )
 endif()
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_metric_overflow.cpp")
+if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_metric_overflow.cpp")
     add_library(ispcok_plugin_bad_metric_overflow MODULE
         samples/plugins/bad_plugin_metric_overflow.cpp
     )
@@ -129,7 +129,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_metric_overflo
     )
 endif()
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_nan_score.cpp")
+if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_nan_score.cpp")
     add_library(ispcok_plugin_bad_nan_score MODULE
         samples/plugins/bad_plugin_nan_score.cpp
     )
