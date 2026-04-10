@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$thirdParty = Join-Path $root "3rd_party"
+$thirdParty = Join-Path $root "third_party"
 $cppBenchmark = Join-Path $thirdParty "CppBenchmark"
 
 if (-not (Test-Path $thirdParty)) {

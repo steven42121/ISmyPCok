@@ -3,6 +3,7 @@
 /out/
 /dist/
 /cmake-build-*/
+/plugins/
 
 # Visual Studio
 /.vs/
@@ -27,5 +28,5 @@ CTestTestfile.cmake
 *.bak
 
 # Third-party working copy (reproducible via script)
-/3rd_party/CppBenchmark/
+/third_party/CppBenchmark/
 

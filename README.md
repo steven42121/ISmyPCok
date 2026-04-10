@@ -2,57 +2,193 @@
 
 基于 [chronoxor/CppBenchmark](https://github.com/chronoxor/CppBenchmark) 的桌面电脑性能基准工具（C++ / CMake）。
 
-## 当前已实现
+## 接入方式
 
-- `cpu.integer_hash`：整数混洗与位运算吞吐
-- `cpu.floating_point`：浮点三角函数与开方计算
-- `memory.memcpy`：不同块大小下的拷贝带宽
-- `memory.vector_scan`：不同数据规模下的内存扫描
-- `threads.atomic_increment`：不同线程数下的原子递增吞吐
+1. CLI：`ispcok_cli`
+2. C ABI SDK：`ispcok_capi`（`extern "C"` 导出）
+3. 插件模块：扫描目录下 `.dll` 动态加载
+
+## 当前已实现模块（内建）
+
+- 下方列表由脚本从 `ispcok_cli list-modules` 自动生成（避免文档与代码漂移）。
+
+<!-- MODULE_LIST_START -->
+- `cpu_avx2`
+- `cpu_avx512`
+- `cpu_branch_predict`
+- `cpu_fp32`
+- `cpu_scalar_int`
+- `cuda`
+- `disk_rand`
+- `disk_seq`
+- `gpu_dx12`
+- `gpu_vulkan`
+- `hip`
+- `memory_bw`
+- `memory_latency`
+- `net_bw`
+- `net_rtt`
+- `npu`
+- `virt_state`
+- `xpu`
+<!-- MODULE_LIST_END -->
+
+- 注：其中部分模块可能返回 `not_implemented` 或 `not_supported`（如 `cpu_avx*` 取决于构建选项和硬件支持）。
+
+## 场景评分（初版）
+
+<!-- SCENARIO_LIST_START -->
+- `game_engine`
+- `maa`
+- `llm_infer_server`
+<!-- SCENARIO_LIST_END -->
+
+说明：
+# ISmyPCok
+
+基于 [chronoxor/CppBenchmark](https://github.com/chronoxor/CppBenchmark) 的桌面电脑性能基准工具（C++ / CMake）。
+
+## 接入方式
+
+1. CLI：`ispcok_cli`
+2. C ABI SDK：`ispcok_capi`（`extern "C"` 导出）
+3. 插件模块：扫描目录下 `.dll` 动态加载
+
+## 当前已实现模块（内建）
+
+- 下方列表由脚本从 `ispcok_cli list-modules` 自动生成（避免文档与代码漂移）。
+
+<!-- MODULE_LIST_START -->
+- `cpu_avx2`
+- `cpu_avx512`
+- `cpu_branch_predict`
+- `cpu_fp32`
+- `cpu_scalar_int`
+- `cuda`
+- `disk_rand`
+- `disk_seq`
+- `gpu_dx12`
+- `gpu_vulkan`
+- `hip`
+- `memory_bw`
+- `memory_latency`
+- `net_bw`
+- `net_rtt`
+- `npu`
+- `virt_state`
+- `xpu`
+<!-- MODULE_LIST_END -->
+
+- 注：其中部分模块可能返回 `not_implemented` 或 `not_supported`（如 `cpu_avx*` 取决于构建选项和硬件支持）。
+
+## 场景评分（初版）
+
+<!-- SCENARIO_LIST_START -->
+- `game_engine`
+- `maa`
+- `llm_infer_server`
+<!-- SCENARIO_LIST_END -->
+
+说明：
+- 场景评分会优先使用 `status=ok` 的模块。
+- 缺失或非 `ok` 模块会使用 fallback 分数，并在 `bottlenecks` 中附加状态标记（例如 `accelerator:missing(...)`）。
 
 ## 目录结构
 
-- `3rd_party/CppBenchmark`：第三方依赖源码（按第三方接入）
-- `src/pc_benchmark.cpp`：基准定义
+- `third_party/CppBenchmark`：第三方依赖源码（按第三方接入）
+- `src/core`：模块、引擎、场景评分、JSON 报告
+- `src/cli`：CLI 入口
+- `src/capi`：C ABI 入口
+- `src/pc_benchmark.cpp`：CppBenchmark 原始基准定义（独立可执行）
 - `scripts/fetch_3rd_party.ps1`：重新拉取第三方依赖
+
+## 开发文档
+
+- 开发总览与架构：`docs/DEVELOPMENT.md`
+- 插件 ABI 约定：`docs/PLUGIN_ABI.md`
 
 ## 快速开始（Windows / Visual Studio）
 
 ```powershell
 cmake -S . -B build
-cmake --build build --config Release --target pc_benchmark
-.\build\Release\pc_benchmark.exe -f "cpu.integer_hash" -q
+cmake --build build --config Release --target ispcok_cli
+.\build\Release\ispcok_cli.exe list-modules
+.\build\Release\ispcok_cli.exe list-scenarios
+.\build\Release\ispcok_cli.exe run --modules cpu_fp32,memory_bw --scenario llm_infer_server
 ```
 
-## 常用命令
+## AVX2 / AVX-512（可选）
+
+默认构建下，`cpu_avx2` / `cpu_avx512` 会返回 `not_supported`（因为没启用对应编译目标）。
 
 ```powershell
-# 运行全部基准（时间会较长）
-.\build\Release\pc_benchmark.exe -f ".*" -q
+# 开启 AVX2
+cmake -S . -B build-avx2 -DISPCOK_ENABLE_AVX2=ON
+cmake --build build-avx2 --config Release --target ispcok_cli
 
-# 只跑 CPU 基准
-.\build\Release\pc_benchmark.exe -f "cpu.*" -q
-
-# 只跑内存基准
-.\build\Release\pc_benchmark.exe -f "memory.*" -q
-
-# 输出 JSON 报告
-.\build\Release\pc_benchmark.exe -f ".*" -q -o json
+# 开启 AVX-512（CPU 与工具链都需支持）
+cmake -S . -B build-avx512 -DISPCOK_ENABLE_AVX512=ON
+cmake --build build-avx512 --config Release --target ispcok_cli
 ```
 
-## 自动构建 Release（GitHub Actions）
+## CLI 常用命令
 
-- 发布 GitHub Release（`published`）后，仓库会自动触发 `.github/workflows/release.yml`。
-- 工作流会在 `windows-latest` 构建 `Release` 版本，并上传压缩包到当前 Release Assets：
-  - `pc_benchmark-<tag>-windows-x64.zip`
+```powershell
+# 列出可用模块（含插件）
+.\build\Release\ispcok_cli.exe list-modules --plugin-dir .\plugins
+
+# 列出可用场景
+.\build\Release\ispcok_cli.exe list-scenarios
+
+# 运行全部内建模块 + 场景评分
+.\build\Release\ispcok_cli.exe run --scenario game_engine
+```
+
+## C ABI（SDK）导出函数
+
+头文件：`include/ispcok/capi.h`
+
+- `const char* ispcok_version(void);`
+- `int ispcok_run_modules(const char* modules_csv, const char* scenario, const char* plugin_dir, char** out_json);`
+- `void ispcok_free_string(char* ptr);`
+
+插件接口头文件：`include/ispcok/plugin_api.h`
+插件导出符号名：`ispcok_get_module_v1`
+
+Python 接入示例：`examples/python/capi_demo.py`
+
+```powershell
+python .\examples\python\capi_demo.py
+```
+
+## 插件示例（GPU 占位替换）
+
+项目内置了一个示例插件 target：`ispcok_plugin_sample_gpu`，会生成 `ispcok_plugin_gpu_vulkan_sample.dll`。
+
+```powershell
+cmake --build build --config Release --target ispcok_plugin_sample_gpu
+mkdir -Force .\plugins | Out-Null
+Copy-Item .\build\Release\ispcok_plugin_gpu_vulkan_sample.dll .\plugins\
+
+# 启用插件后，gpu_vulkan 将使用插件实现（覆盖内建占位）
+.\build\Release\ispcok_cli.exe run --plugin-dir .\plugins --modules gpu_vulkan --scenario game_engine
+```
+
+## 注意
+
+- `pc_benchmark` 与 `ispcok_core` 是两套并行体系。  
+  `pc_benchmark` 保留用于 CppBenchmark 原始实验；模块化扩展以 `ispcok_core`（CLI/CAPI/Plugin）为主。
 
 ## 第三方依赖说明
 
 `CppBenchmark` 本仓库本身依赖额外模块（`Catch2` / `zlib` / `HdrHistogram` / `cpp-optparse` 以及 `cmake` 脚本）。  
-如果你把 `3rd_party/CppBenchmark` 删除了，可执行：
+如果你把 `third_party/CppBenchmark` 删除了，可执行：
 
 ```powershell
 .\scripts\fetch_3rd_party.ps1
 ```
 
 再重新执行 CMake 构建命令即可。
+
+
+
