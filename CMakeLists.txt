@@ -107,6 +107,49 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/mock_gpu_plugin.cpp")
     )
 endif()
 
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_null_metrics.cpp")
+    add_library(ispcok_plugin_bad_null_metrics MODULE
+        samples/plugins/bad_plugin_null_metrics.cpp
+    )
+    target_include_directories(ispcok_plugin_bad_null_metrics PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    set_target_properties(ispcok_plugin_bad_null_metrics PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "ispcok_plugin_bad_null_metrics"
+    )
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_metric_overflow.cpp")
+    add_library(ispcok_plugin_bad_metric_overflow MODULE
+        samples/plugins/bad_plugin_metric_overflow.cpp
+    )
+    target_include_directories(ispcok_plugin_bad_metric_overflow PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    set_target_properties(ispcok_plugin_bad_metric_overflow PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "ispcok_plugin_bad_metric_overflow"
+    )
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_nan_score.cpp")
+    add_library(ispcok_plugin_bad_nan_score MODULE
+        samples/plugins/bad_plugin_nan_score.cpp
+    )
+    target_include_directories(ispcok_plugin_bad_nan_score PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    set_target_properties(ispcok_plugin_bad_nan_score PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "ispcok_plugin_bad_nan_score"
+    )
+endif()
+
+if(TARGET ispcok_plugin_bad_null_metrics)
+    add_dependencies(ispcok_tests ispcok_plugin_bad_null_metrics)
+endif()
+if(TARGET ispcok_plugin_bad_metric_overflow)
+    add_dependencies(ispcok_tests ispcok_plugin_bad_metric_overflow)
+endif()
+if(TARGET ispcok_plugin_bad_nan_score)
+    add_dependencies(ispcok_tests ispcok_plugin_bad_nan_score)
+endif()
+
 if(MSVC)
     target_compile_options(ispcok_tests PRIVATE /W4 /permissive-)
     target_compile_options(ispcok_cli PRIVATE /W4 /permissive-)
@@ -120,4 +163,4 @@ else()
 endif()
 
 enable_testing()
-add_test(NAME ispcok_tests COMMAND ispcok_tests)
+add_test(NAME ispcok_tests COMMAND ispcok_tests "$<TARGET_FILE_DIR:ispcok_tests>")
