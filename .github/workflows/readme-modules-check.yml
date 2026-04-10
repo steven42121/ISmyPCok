@@ -47,8 +47,9 @@ jobs:
       - name: Assert README is up to date
         shell: pwsh
         run: |
-          git diff -- README.md
-          if (-not [string]::IsNullOrEmpty((git status --porcelain README.md))) {
-            Write-Error "README.md generated blocks are out of date. Run ./scripts/update_readme_generated.ps1 and commit the result."
+          git diff -- README.en.md README.zh-CN.md
+          $changed = git status --porcelain README.en.md README.zh-CN.md
+          if (-not [string]::IsNullOrEmpty($changed)) {
+            Write-Error "README generated blocks are out of date. Run ./scripts/update_readme_generated.ps1 and commit the result."
             exit 1
           }
