@@ -41,7 +41,8 @@ function Write-FileWithRetry {
 
     for ($i = 0; $i -lt $MaxRetries; $i++) {
         try {
-            Set-Content -Path $Path -Value $Content -Encoding UTF8
+            $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+            [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
             return
         }
         catch {
