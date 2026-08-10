@@ -3,6 +3,18 @@
 
 #include <stddef.h>
 
+#if defined(_WIN32)
+#if defined(ISPCOK_PLUGIN_BUILDING_DLL)
+#define ISPCOK_PLUGIN_EXPORT __declspec(dllexport)
+#else
+#define ISPCOK_PLUGIN_EXPORT __declspec(dllimport)
+#endif
+#elif defined(__GNUC__) || defined(__clang__)
+#define ISPCOK_PLUGIN_EXPORT __attribute__((visibility("default")))
+#else
+#define ISPCOK_PLUGIN_EXPORT
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -11,7 +11,7 @@
 2. `ispcok_core` 体系：
 - `ispcok_cli`：命令行入口。
 - `ispcok_capi`：稳定 C ABI 入口。
-- 可选 `.dll` 插件运行时加载。
+- 可选插件运行时加载（Windows `.dll` / Linux、macOS `.so`、`.dylib`）。
 - 场景评分逻辑在 `src/core/engine.cpp`。
 
 两条链路并行存在是有意设计。新特性建议优先在 `ispcok_core` 落地。
@@ -101,11 +101,18 @@
 ## 测试
 
 - 单元测试：`tests/ispcok_tests.cpp`
-- 运行命令：
+- 运行命令（Windows）：
 
 ```powershell
 cmake --build build --config Release --target ispcok_tests
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-- 已包含插件负面样例测试（错误返回结构、非法值等）。
+- 运行命令（Linux / macOS）：
+
+```bash
+cmake --build build --target ispcok_tests
+ctest --test-dir build --output-on-failure
+```
+
+- 已包含插件负面样例测试（错误返回结构、非法值等），Windows / Linux / macOS 均可运行。

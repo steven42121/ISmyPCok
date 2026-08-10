@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <thread>
@@ -12,6 +13,27 @@
 #define NOMINMAX
 #include <winsock2.h>
 #include <ws2tcpip.h>
+using SocketRaw = SOCKET;
+inline constexpr SocketRaw kInvalidSocket = INVALID_SOCKET;
+using SocketLen = int;
+inline int CloseSocket(SocketRaw value) { return closesocket(value); }
+inline bool InitSockets()
+{
+    WSADATA wsa_data{};
+    return WSAStartup(MAKEWORD(2, 2), &wsa_data) == 0;
+}
+inline void CleanupSockets() { WSACleanup(); }
+#else
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+using SocketRaw = int;
+inline constexpr SocketRaw kInvalidSocket = -1;
+using SocketLen = socklen_t;
+inline int CloseSocket(SocketRaw value) { return close(value); }
+inline bool InitSockets() { return true; }
+inline void CleanupSockets() {}
 #endif
 
 namespace ispcok {
@@ -31,20 +53,13 @@ class SocketRuntime
 public:
     SocketRuntime()
     {
-#if defined(_WIN32)
-        WSADATA wsa_data{};
-        ok_ = (WSAStartup(MAKEWORD(2, 2), &wsa_data) == 0);
-#else
-        ok_ = false;
-#endif
+        ok_ = InitSockets();
     }
 
     ~SocketRuntime()
     {
-#if defined(_WIN32)
         if (ok_)
-            WSACleanup();
-#endif
+            CleanupSockets();
     }
 
     bool ok() const { return ok_; }
@@ -56,15 +71,15 @@ private:
 class SocketHandle
 {
 public:
-    using Raw = SOCKET;
-    static constexpr Raw Invalid = INVALID_SOCKET;
+    using Raw = SocketRaw;
+    static constexpr Raw Invalid = kInvalidSocket;
 
     SocketHandle() = default;
     explicit SocketHandle(Raw value) : value_(value) {}
     ~SocketHandle()
     {
         if (value_ != Invalid)
-            closesocket(value_);
+            CloseSocket(value_);
     }
 
     SocketHandle(const SocketHandle&) = delete;
@@ -80,7 +95,7 @@ public:
         if (this != &other)
         {
             if (value_ != Invalid)
-                closesocket(value_);
+                CloseSocket(value_);
             value_ = other.value_;
             other.value_ = Invalid;
         }
@@ -94,12 +109,12 @@ private:
     Raw value_ = Invalid;
 };
 
-bool SendAll(SOCKET socket, const char* data, int size)
+bool SendAll(SocketRaw socket, const char* data, int size)
 {
     int sent = 0;
     while (sent < size)
     {
-        const int rc = send(socket, data + sent, size - sent, 0);
+        const int rc = static_cast<int>(send(socket, data + sent, size - sent, 0));
         if (rc <= 0)
             return false;
         sent += rc;
@@ -107,12 +122,12 @@ bool SendAll(SOCKET socket, const char* data, int size)
     return true;
 }
 
-bool RecvAll(SOCKET socket, char* data, int size)
+bool RecvAll(SocketRaw socket, char* data, int size)
 {
     int received = 0;
     while (received < size)
     {
-        const int rc = recv(socket, data + received, size - received, 0);
+        const int rc = static_cast<int>(recv(socket, data + received, size - received, 0));
         if (rc <= 0)
             return false;
         received += rc;
@@ -132,16 +147,11 @@ public:
         result.id = id();
         result.category = category();
 
-#if !defined(_WIN32)
-        result.status = "not_supported";
-        result.message = "Implemented for Windows in current version";
-        return result;
-#else
         SocketRuntime runtime;
         if (!runtime.ok())
         {
             result.status = "error";
-            result.message = "WSAStartup failed";
+            result.message = "socket runtime init failed";
             return result;
         }
 
@@ -170,20 +180,20 @@ public:
             return result;
         }
 
-        int addr_len = sizeof(addr);
+        SocketLen addr_len = sizeof(addr);
         if (getsockname(listener.get(), reinterpret_cast<sockaddr*>(&addr), &addr_len) != 0)
         {
             result.status = "error";
             result.message = "getsockname failed";
             return result;
         }
-        const u_short port = ntohs(addr.sin_port);
+        const std::uint16_t port = ntohs(addr.sin_port);
 
         std::atomic<bool> server_ok{true};
         std::thread server([&]()
         {
             sockaddr_in client_addr{};
-            int client_len = sizeof(client_addr);
+            SocketLen client_len = sizeof(client_addr);
             SocketHandle client(accept(listener.get(), reinterpret_cast<sockaddr*>(&client_addr), &client_len));
             if (!client.valid())
             {
@@ -258,7 +268,6 @@ public:
         result.score = ClampScore(100.0 - avg_rtt_ms * 150.0);
         result.message = "TCP loopback RTT";
         return result;
-#endif
     }
 };
 
@@ -274,16 +283,11 @@ public:
         result.id = id();
         result.category = category();
 
-#if !defined(_WIN32)
-        result.status = "not_supported";
-        result.message = "Implemented for Windows in current version";
-        return result;
-#else
         SocketRuntime runtime;
         if (!runtime.ok())
         {
             result.status = "error";
-            result.message = "WSAStartup failed";
+            result.message = "socket runtime init failed";
             return result;
         }
 
@@ -312,14 +316,14 @@ public:
             return result;
         }
 
-        int addr_len = sizeof(addr);
+        SocketLen addr_len = sizeof(addr);
         if (getsockname(listener.get(), reinterpret_cast<sockaddr*>(&addr), &addr_len) != 0)
         {
             result.status = "error";
             result.message = "getsockname failed";
             return result;
         }
-        const u_short port = ntohs(addr.sin_port);
+        const std::uint16_t port = ntohs(addr.sin_port);
 
         constexpr std::size_t total_bytes = 64ULL * 1024ULL * 1024ULL;
         constexpr int chunk = 64 * 1024;
@@ -329,7 +333,7 @@ public:
         std::thread server([&]()
         {
             sockaddr_in client_addr{};
-            int client_len = sizeof(client_addr);
+            SocketLen client_len = sizeof(client_addr);
             SocketHandle client(accept(listener.get(), reinterpret_cast<sockaddr*>(&client_addr), &client_len));
             if (!client.valid())
             {
@@ -404,7 +408,6 @@ public:
         result.score = ClampScore(mibps / 25.0);
         result.message = "TCP loopback bandwidth";
         return result;
-#endif
     }
 };
 

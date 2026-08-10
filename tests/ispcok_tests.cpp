@@ -91,12 +91,32 @@ bool TestLlmScenarioMarksMissingAccelerator()
            Expect(found, "llm_infer_server should mark missing accelerator when no accelerator module is ok");
 }
 
+bool TestNetworkModulesRunOnHost()
+{
+    ispcok::RunOptions options;
+    options.modules = {"net_rtt", "net_bw"};
+    const ispcok::RunReport report = ispcok::Run(options);
+
+    bool ok = true;
+    ok = ok && Expect(report.modules.size() == 2, "net_rtt and net_bw should both be discovered");
+    for (const auto& module : report.modules)
+    {
+        ok = ok && Expect(module.status == "ok", std::string(module.id) + " should run successfully on this host");
+        if (module.id == "net_rtt")
+        {
+            ok = ok && Expect(module.metrics.count("avg_rtt_ms") == 1, "net_rtt should report avg_rtt_ms");
+            ok = ok && Expect(module.metrics.at("avg_rtt_ms") >= 0.0, "net_rtt avg_rtt_ms should be non-negative");
+        }
+        if (module.id == "net_bw")
+        {
+            ok = ok && Expect(module.metrics.count("mibps") == 1, "net_bw should report mibps");
+        }
+    }
+    return ok;
+}
+
 bool TestBadPluginGuardrails(const std::string& plugin_dir)
 {
-#if !defined(_WIN32)
-    (void)plugin_dir;
-    return Skip("BadPluginGuardrails is Windows-only (plugin loader currently uses Win32 .dll APIs)");
-#else
     if (plugin_dir.empty())
         return Skip("plugin_dir not provided, skipping plugin guardrail checks");
     if (!std::filesystem::exists(plugin_dir))
@@ -143,7 +163,6 @@ bool TestBadPluginGuardrails(const std::string& plugin_dir)
     }
 
     return ok;
-#endif
 }
 
 } // namespace
@@ -166,6 +185,7 @@ int main(int argc, char** argv)
         {"ScenarioRegistry", &TestScenarioRegistry},
         {"RunSelectedModuleOnly", &TestRunSelectedModuleOnly},
         {"LlmScenarioMarksMissingAccelerator", &TestLlmScenarioMarksMissingAccelerator},
+        {"NetworkModulesRunOnHost", &TestNetworkModulesRunOnHost},
         {"BadPluginGuardrails", [plugin_dir]() { return TestBadPluginGuardrails(plugin_dir); }},
     };
 

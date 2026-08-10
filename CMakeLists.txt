@@ -40,6 +40,13 @@ target_include_directories(ispcok_core
 )
 if(WIN32)
     target_link_libraries(ispcok_core PRIVATE ws2_32)
+else()
+    find_package(Threads REQUIRED)
+    find_library(ISPCOK_DL_LIBRARY NAMES dl)
+    target_link_libraries(ispcok_core PRIVATE Threads::Threads)
+    if(ISPCOK_DL_LIBRARY)
+        target_link_libraries(ispcok_core PRIVATE ${ISPCOK_DL_LIBRARY})
+    endif()
 endif()
 if(ISPCOK_ENABLE_AVX512)
     if(MSVC)
@@ -54,6 +61,7 @@ elseif(ISPCOK_ENABLE_AVX2)
         target_compile_options(ispcok_core PRIVATE -mavx2 -mfma)
     endif()
 endif()
+set_target_properties(ispcok_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(MSVC)
     target_compile_options(ispcok_core PRIVATE /W4 /permissive-)
 else()
@@ -96,44 +104,48 @@ target_include_directories(ispcok_tests
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
-if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/mock_gpu_plugin.cpp")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/mock_gpu_plugin.cpp")
     add_library(ispcok_plugin_sample_gpu MODULE
         samples/plugins/mock_gpu_plugin.cpp
     )
     target_include_directories(ispcok_plugin_sample_gpu PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    target_compile_definitions(ispcok_plugin_sample_gpu PRIVATE ISPCOK_PLUGIN_BUILDING_DLL)
     set_target_properties(ispcok_plugin_sample_gpu PROPERTIES
         PREFIX ""
         OUTPUT_NAME "ispcok_plugin_gpu_vulkan_sample"
     )
 endif()
 
-if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_null_metrics.cpp")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_null_metrics.cpp")
     add_library(ispcok_plugin_bad_null_metrics MODULE
         samples/plugins/bad_plugin_null_metrics.cpp
     )
     target_include_directories(ispcok_plugin_bad_null_metrics PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    target_compile_definitions(ispcok_plugin_bad_null_metrics PRIVATE ISPCOK_PLUGIN_BUILDING_DLL)
     set_target_properties(ispcok_plugin_bad_null_metrics PROPERTIES
         PREFIX ""
         OUTPUT_NAME "ispcok_plugin_bad_null_metrics"
     )
 endif()
 
-if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_metric_overflow.cpp")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_metric_overflow.cpp")
     add_library(ispcok_plugin_bad_metric_overflow MODULE
         samples/plugins/bad_plugin_metric_overflow.cpp
     )
     target_include_directories(ispcok_plugin_bad_metric_overflow PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    target_compile_definitions(ispcok_plugin_bad_metric_overflow PRIVATE ISPCOK_PLUGIN_BUILDING_DLL)
     set_target_properties(ispcok_plugin_bad_metric_overflow PROPERTIES
         PREFIX ""
         OUTPUT_NAME "ispcok_plugin_bad_metric_overflow"
     )
 endif()
 
-if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_nan_score.cpp")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_nan_score.cpp")
     add_library(ispcok_plugin_bad_nan_score MODULE
         samples/plugins/bad_plugin_nan_score.cpp
     )
     target_include_directories(ispcok_plugin_bad_nan_score PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    target_compile_definitions(ispcok_plugin_bad_nan_score PRIVATE ISPCOK_PLUGIN_BUILDING_DLL)
     set_target_properties(ispcok_plugin_bad_nan_score PROPERTIES
         PREFIX ""
         OUTPUT_NAME "ispcok_plugin_bad_nan_score"
