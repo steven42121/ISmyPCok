@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Release version string (single source of truth, e.g. 26h2-0810).
+# CMake project() below keeps a numeric VERSION only for CMake tooling;
+# the user-facing release string comes from VERSION and is injected into
+# ispcok_core::Version() via ISPCOK_VERSION.
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" ISPCOK_VERSION)
+string(STRIP "${ISPCOK_VERSION}" ISPCOK_VERSION)
+
 project(ISmyPCok VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -38,6 +45,7 @@ target_include_directories(ispcok_core
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
+target_compile_definitions(ispcok_core PUBLIC ISPCOK_VERSION="${ISPCOK_VERSION}")
 if(WIN32)
     target_link_libraries(ispcok_core PRIVATE ws2_32)
 else()

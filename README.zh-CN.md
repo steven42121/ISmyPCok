@@ -144,6 +144,16 @@ cp build/ispcok_plugin_gpu_vulkan_sample.so plugins/
 ./build/ispcok_cli run --plugin-dir plugins --modules gpu_vulkan --scenario game_engine
 ```
 
+## 版本与自动发布
+
+版本单一事实来源：仓库根目录 `VERSION` 文件（当前 `26h2-0810`）。构建时由 CMake 读取并注入 `ISPCOK_VERSION` 编译定义，CLI 的 `version` 字段、C ABI 的 `ispcok_version()` 均返回该值。
+
+修改 `VERSION` 并推送 `main` 后，`.github/workflows/auto-release.yml` 会自动：
+
+- 构建 `ispcok_cli`、`ispcok_capi.dll`、`pc_benchmark`、GPU 插件样例与 WinUI3 桌面应用
+- 运行单元测试
+- 若该版本尚无 Release，则创建 tag（如 `26h2-0810`）并上传 Windows x64 的 CLI 与 WinUI 压缩包
+
 ## 注意
 
 - `pc_benchmark` 与 `ispcok_core` 是两套并行体系。`pc_benchmark` 用于 CppBenchmark 原始实验；模块化扩展以 `ispcok_core`（CLI/CAPI/Plugin）为主。

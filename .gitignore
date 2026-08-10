@@ -14,6 +14,12 @@
 *.userosscache
 *.sln.docstates
 
+# WinUI app output
+/apps/*/x64/
+/apps/*/ARM64/
+/apps/*/x86/
+/apps/*/Win32/
+
 # CMake generated files
 CMakeCache.txt
 CMakeFiles/

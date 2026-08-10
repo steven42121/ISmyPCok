@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <CppWinRTOptimized>true</CppWinRTOptimized>
+    <CppWinRTRootNamespaceAutoMerge>true</CppWinRTRootNamespaceAutoMerge>
+    <CppWinRTUsePrefixes>true</CppWinRTUsePrefixes>
+    <MinimumVisualStudioVersion>17.0</MinimumVisualStudioVersion>
+    <ProjectGuid>{2F7A3C1B-8D4E-4B6F-9A1C-5E0D6B7C8D9E}</ProjectGuid>
+    <ProjectName>ISmyPCok.WinUI</ProjectName>
+    <RootNamespace>ISmyPCokWinUI</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.17763.0</WindowsTargetPlatformMinVersion>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <WindowsPackageType>None</WindowsPackageType>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+
+  <PropertyGroup Label="UserMacros" />
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="App.xaml.h" />
+    <ClInclude Include="MainWindow.xaml.h" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="App.xaml.cpp" />
+    <ClCompile Include="MainWindow.xaml.cpp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml" />
+    <Page Include="MainWindow.xaml" />
+    <Manifest Include="app.manifest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK">
+      <Version>1.5.240627000</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Windows.CppWinRT">
+      <Version>2.0.240405.15</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools">
+      <Version>10.0.22621.3233</Version>
+    </PackageReference>
+  </ItemGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(NuGetPackageRoot)\microsoft.windowsappsdk\1.5.240627000\buildTransitive\Microsoft.WindowsAppSDK.targets" Condition="Exists('$(NuGetPackageRoot)\microsoft.windowsappsdk\1.5.240627000\buildTransitive\Microsoft.WindowsAppSDK.targets')" />
+    <Import Project="$(NuGetPackageRoot)\microsoft.windows.cppwinrt\2.0.240405.15\build\native\Microsoft.Windows.CppWinRT.targets" Condition="Exists('$(NuGetPackageRoot)\microsoft.windows.cppwinrt\2.0.240405.15\build\native\Microsoft.Windows.CppWinRT.targets')" />
+  </ImportGroup>
+
+  <Target Name="DeployCapApi" AfterTargets="Build">
+    <ItemGroup>
+      <_CapApiCandidates Include="$(ProjectDir)..\..\build\Release\ispcok_capi.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_CapApiCandidates)" DestinationFolder="$(OutDir)"
+          Condition="Exists('%(Identity)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

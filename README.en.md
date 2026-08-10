@@ -151,6 +151,16 @@ cp build/ispcok_plugin_gpu_vulkan_sample.so plugins/
 ./build/ispcok_cli run --plugin-dir plugins --modules gpu_vulkan --scenario game_engine
 ```
 
+## Versioning and Auto Release
+
+The single source of truth for the version is the `VERSION` file at the repository root (currently `26h2-0810`). CMake reads it at configure time and injects the `ISPCOK_VERSION` compile definition; both the CLI `version` field and the C ABI `ispcok_version()` return that value.
+
+After you change `VERSION` and push `main`, `.github/workflows/auto-release.yml` automatically:
+
+- Builds `ispcok_cli`, `ispcok_capi.dll`, `pc_benchmark`, the GPU plugin sample and the WinUI3 desktop app
+- Runs the unit tests
+- If no Release exists for the version yet, creates a tag (e.g. `26h2-0810`) and uploads Windows x64 CLI and WinUI packages
+
 ## Notes
 
 - `pc_benchmark` and `ispcok_core` coexist intentionally. Use `pc_benchmark` for raw CppBenchmark experiments and `ispcok_core` for modular integration.
