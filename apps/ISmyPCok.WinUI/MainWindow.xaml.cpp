@@ -11,9 +11,9 @@ using namespace Microsoft::UI::Xaml;
 namespace
 {
     const wchar_t kCapiDll[] = L"ispcok_capi.dll";
-    const wchar_t kEntryVersion[] = L"ispcok_version";
-    const wchar_t kEntryRunModules[] = L"ispcok_run_modules";
-    const wchar_t kEntryFreeString[] = L"ispcok_free_string";
+    const char kEntryVersion[] = "ispcok_version";
+    const char kEntryRunModules[] = "ispcok_run_modules";
+    const char kEntryFreeString[] = "ispcok_free_string";
 
     using VersionFn = const char* (*)();
     using RunModulesFn = int (*)(const char*, const char*, const char*, char**);
@@ -97,8 +97,9 @@ namespace winrt::ISmyPCokWinUI::implementation
         const std::string scenario = SelectedScenario();
         const std::string modules = SelectedModules();
         const auto dispatcher = DispatcherQueue();
+        const auto weakThis = get_weak();
 
-        std::thread([dispatcher, scenario, modules, this]()
+        std::thread([dispatcher, weakThis, scenario, modules]()
         {
             std::string output;
             CapApi api;
@@ -130,11 +131,15 @@ namespace winrt::ISmyPCokWinUI::implementation
             }
 
             const auto result = winrt::to_hstring(output);
-            dispatcher.TryEnqueue([this, result]()
+            dispatcher.TryEnqueue([weakThis, result]()
             {
-                ResultBox().Text(result);
-                BusyRing().IsActive(false);
-                RunButton().IsEnabled(true);
+                if (auto strongThis = weakThis.get())
+                {
+                    auto self = winrt::get_self<winrt::ISmyPCokWinUI::implementation::MainWindow>(strongThis);
+                    self->ResultBox().Text(result);
+                    self->BusyRing().IsActive(false);
+                    self->RunButton().IsEnabled(true);
+                }
             });
         }).detach();
     }
