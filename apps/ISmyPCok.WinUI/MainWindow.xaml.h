@@ -14,8 +14,8 @@ namespace winrt::ISmyPCokWinUI::implementation
 
     private:
         void LoadScenarios();
-        std::string SelectedScenario() const;
-        std::string SelectedModules() const;
+        std::string SelectedScenario();
+        std::string SelectedModules();
     };
 }
 

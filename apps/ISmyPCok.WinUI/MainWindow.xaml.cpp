@@ -75,7 +75,7 @@ namespace winrt::ISmyPCokWinUI::implementation
         ScenarioCombo().SelectedIndex(0);
     }
 
-    std::string MainWindow::SelectedScenario() const
+    std::string MainWindow::SelectedScenario()
     {
         const auto selection = ScenarioCombo().SelectedItem();
         if (selection == nullptr)
@@ -84,7 +84,7 @@ namespace winrt::ISmyPCokWinUI::implementation
         return winrt::to_string(value);
     }
 
-    std::string MainWindow::SelectedModules() const
+    std::string MainWindow::SelectedModules()
     {
         const auto text = ModulesBox().Text();
         return winrt::to_string(text);

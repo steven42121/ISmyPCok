@@ -9,7 +9,7 @@ namespace winrt::ISmyPCokWinUI::implementation
 {
     App::App()
     {
-        Initialize();
+        InitializeComponent();
     }
 
     void App::OnLaunched(LaunchActivatedEventArgs const&)

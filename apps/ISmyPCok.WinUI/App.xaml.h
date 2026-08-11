@@ -14,10 +14,3 @@ namespace winrt::ISmyPCokWinUI::implementation
         winrt::Microsoft::UI::Xaml::Window window{ nullptr };
     };
 }
-
-namespace winrt::ISmyPCokWinUI::factory_implementation
-{
-    struct App : AppT<App, implementation::App>
-    {
-    };
-}
