@@ -23,6 +23,8 @@ inline bool InitSockets()
     return WSAStartup(MAKEWORD(2, 2), &wsa_data) == 0;
 }
 inline void CleanupSockets() { WSACleanup(); }
+inline constexpr int kSendNoSignalFlag = 0;
+inline void SuppressSigPipe(SocketRaw) {}
 #else
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -34,6 +36,22 @@ using SocketLen = socklen_t;
 inline int CloseSocket(SocketRaw value) { return close(value); }
 inline bool InitSockets() { return true; }
 inline void CleanupSockets() {}
+
+#if defined(MSG_NOSIGNAL)
+inline constexpr int kSendNoSignalFlag = MSG_NOSIGNAL;
+#else
+inline constexpr int kSendNoSignalFlag = 0;
+#endif
+
+inline void SuppressSigPipe(SocketRaw value)
+{
+#if defined(SO_NOSIGPIPE)
+    int enabled = 1;
+    setsockopt(value, SOL_SOCKET, SO_NOSIGPIPE, &enabled, sizeof(enabled));
+#else
+    (void)value;
+#endif
+}
 #endif
 
 namespace ispcok {
@@ -114,7 +132,7 @@ bool SendAll(SocketRaw socket, const char* data, int size)
     int sent = 0;
     while (sent < size)
     {
-        const int rc = static_cast<int>(send(socket, data + sent, size - sent, 0));
+        const int rc = static_cast<int>(send(socket, data + sent, size - sent, kSendNoSignalFlag));
         if (rc <= 0)
             return false;
         sent += rc;
@@ -162,6 +180,7 @@ public:
             result.message = "listener socket failed";
             return result;
         }
+        SuppressSigPipe(listener.get());
 
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
@@ -200,6 +219,7 @@ public:
                 server_ok = false;
                 return;
             }
+            SuppressSigPipe(client.get());
 
             char byte = 0;
             for (int i = 0; i < 2000; ++i)
@@ -226,6 +246,7 @@ public:
             result.message = "client socket failed";
             return result;
         }
+        SuppressSigPipe(client.get());
 
         sockaddr_in server_addr{};
         server_addr.sin_family = AF_INET;
@@ -298,6 +319,7 @@ public:
             result.message = "listener socket failed";
             return result;
         }
+        SuppressSigPipe(listener.get());
 
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
@@ -340,6 +362,7 @@ public:
                 server_ok = false;
                 return;
             }
+            SuppressSigPipe(client.get());
 
             std::size_t received_total = 0;
             while (received_total < total_bytes)
@@ -363,6 +386,7 @@ public:
             result.message = "client socket failed";
             return result;
         }
+        SuppressSigPipe(client.get());
 
         sockaddr_in server_addr{};
         server_addr.sin_family = AF_INET;

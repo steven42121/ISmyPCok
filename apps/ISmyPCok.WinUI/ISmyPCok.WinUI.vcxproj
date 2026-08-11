@@ -23,6 +23,12 @@
     <WindowsTargetPlatformMinVersion>10.0.17763.0</WindowsTargetPlatformMinVersion>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <WindowsPackageType>None</WindowsPackageType>
+    <AppContainerApplication>false</AppContainerApplication>
+    <AppxPackage>false</AppxPackage>
+    <ApplicationType>Windows Store</ApplicationType>
+    <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
+    <UseUAP>false</UseUAP>
+    <UseCppWinRT>true</UseCppWinRT>
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
   </PropertyGroup>
@@ -93,8 +99,6 @@
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(NuGetPackageRoot)\microsoft.windowsappsdk\1.5.240627000\buildTransitive\Microsoft.WindowsAppSDK.targets" Condition="Exists('$(NuGetPackageRoot)\microsoft.windowsappsdk\1.5.240627000\buildTransitive\Microsoft.WindowsAppSDK.targets')" />
-    <Import Project="$(NuGetPackageRoot)\microsoft.windows.cppwinrt\2.0.240405.15\build\native\Microsoft.Windows.CppWinRT.targets" Condition="Exists('$(NuGetPackageRoot)\microsoft.windows.cppwinrt\2.0.240405.15\build\native\Microsoft.Windows.CppWinRT.targets')" />
   </ImportGroup>
 
   <Target Name="DeployCapApi" AfterTargets="Build">
