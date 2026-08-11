@@ -18,3 +18,13 @@ namespace winrt::ISmyPCokWinUI::implementation
         window.Activate();
     }
 }
+
+int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+{
+    winrt::init_apartment(winrt::apartment_type::single_threaded);
+    winrt::Microsoft::UI::Xaml::Application::Start([](auto&&)
+    {
+        winrt::make<winrt::ISmyPCokWinUI::implementation::App>();
+    });
+    return 0;
+}
