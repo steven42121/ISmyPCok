@@ -137,7 +137,7 @@ namespace winrt::ISmyPCokWinUI::implementation
             {
                 if (auto strongThis = weakThis.get())
                 {
-                    auto self = winrt::get_self<winrt::ISmyPCokWinUI::implementation::MainWindow>(strongThis);
+                    auto self = strongThis.get();
                     self->ResultBox().Text(result);
                     self->BusyRing().IsActive(false);
                     self->RunButton().IsEnabled(true);
