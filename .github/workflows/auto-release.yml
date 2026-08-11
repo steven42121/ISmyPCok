@@ -91,6 +91,26 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "MSBuild failed with exit code $LASTEXITCODE" }
           Copy-Item build\Release\ispcok_capi.dll apps\ISmyPCok.WinUI\x64\Release\ -Force
 
+      - name: Dump WinUI generated files (diagnostics)
+        if: always()
+        shell: pwsh
+        run: |
+          $proj = "apps\ISmyPCok.WinUI"
+          Write-Output "=== Generated Files tree ==="
+          Get-ChildItem -Recurse "$proj\Generated Files" -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+          Write-Output "=== OutDir tree (winmd/exe/dll) ==="
+          Get-ChildItem -Recurse "$proj\x64\Release" -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in '.winmd','.exe','.dll' } | ForEach-Object { $_.FullName }
+          Write-Output "=== Generated .g.h contents ==="
+          Get-ChildItem -Recurse "$proj\Generated Files" -Filter *.g.h -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Output "----- $($_.FullName) -----"
+            Get-Content $_.FullName
+          }
+          Write-Output "=== Generated .g.cpp contents ==="
+          Get-ChildItem -Recurse "$proj\Generated Files" -Filter *.g.cpp -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Output "----- $($_.FullName) -----"
+            Get-Content $_.FullName
+          }
+
       - name: Package CLI artifact
         if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
         shell: pwsh

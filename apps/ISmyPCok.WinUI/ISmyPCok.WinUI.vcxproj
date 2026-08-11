@@ -20,6 +20,16 @@
     <ProjectGuid>{2F7A3C1B-8D4E-4B6F-9A1C-5E0D6B7C8D9E}</ProjectGuid>
     <ProjectName>ISmyPCok.WinUI</ProjectName>
     <RootNamespace>ISmyPCokWinUI</RootNamespace>
+    <!--
+      TargetName must equal RootNamespace so produced binaries (.exe/.pri/etc.)
+      have a name matching the project .winmd. Without this, the XAML compiler
+      Pass2 default LocalAssembly ($(OutputPath)\$(TargetName).winmd) points at
+      "ISmyPCok.WinUI.winmd" while MIDL emits "ISmyPCokWinUI.winmd", so Pass2
+      cannot resolve the project's own runtimeclass and generates a broken
+      MainWindowT/AppT template. This is exactly what the official VS WinUI3
+      C++ template ships with.
+    -->
+    <TargetName>$(RootNamespace)</TargetName>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <WindowsTargetPlatformMinVersion>10.0.17763.0</WindowsTargetPlatformMinVersion>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
