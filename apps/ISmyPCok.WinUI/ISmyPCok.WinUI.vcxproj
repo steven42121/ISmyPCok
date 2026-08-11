@@ -15,6 +15,7 @@
     <CppWinRTOptimized>true</CppWinRTOptimized>
     <CppWinRTRootNamespaceAutoMerge>true</CppWinRTRootNamespaceAutoMerge>
     <CppWinRTUsePrefixes>true</CppWinRTUsePrefixes>
+    <MinimalCoreWin>true</MinimalCoreWin>
     <MinimumVisualStudioVersion>17.0</MinimumVisualStudioVersion>
     <ProjectGuid>{2F7A3C1B-8D4E-4B6F-9A1C-5E0D6B7C8D9E}</ProjectGuid>
     <ProjectName>ISmyPCok.WinUI</ProjectName>
@@ -27,8 +28,6 @@
     <AppxPackage>false</AppxPackage>
     <ApplicationType>Windows Store</ApplicationType>
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
-    <UseUAP>false</UseUAP>
-    <UseCppWinRT>true</UseCppWinRT>
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
   </PropertyGroup>
@@ -39,6 +38,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+    <DesktopCompatible>true</DesktopCompatible>
   </PropertyGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
