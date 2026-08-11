@@ -35,5 +35,10 @@
 // or the generated MainWindowT fails with C2143 "missing ',' before '<'".
 #include <winrt/ISmyPCokWinUI.h>
 #include "MainWindow.g.h"
+// MainWindow.xaml.h defines winrt::ISmyPCokWinUI::implementation::MainWindow,
+// which XamlTypeInfo.g.cpp references via ActivateLocalType. Without it the
+// generated XamlTypeInfo.g.cpp fails with C2039 'MainWindow' is not a member
+// of 'implementation'.
+#include "MainWindow.xaml.h"
 
 #include <microsoft.ui.xaml.window.h>
