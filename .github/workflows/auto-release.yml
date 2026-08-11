@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - name: Checkout
@@ -69,6 +69,20 @@ jobs:
         run: |
           cmake --build build --config Release --target ispcok_tests
           ctest --test-dir build -C Release --output-on-failure
+
+      - name: Install UWP C++ v143 build tools
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -property installationPath | Select-Object -First 1
+          if (-not $vsPath) { throw "Visual Studio install path not found" }
+          $setup = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe"
+          $p = Start-Process -FilePath $setup -ArgumentList @(
+            'modify', '--installPath', $vsPath,
+            '--add', 'Microsoft.VisualStudio.ComponentGroup.UWP.VC',
+            '--quiet', '--norestart'
+          ) -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "VS setup.exe modify failed with exit code $($p.ExitCode)" }
 
       - name: Build WinUI app (Release x64)
         shell: pwsh
