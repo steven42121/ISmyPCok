@@ -110,6 +110,14 @@ jobs:
             Write-Output "----- $($_.FullName) -----"
             Get-Content $_.FullName
           }
+          Write-Output "=== XamlCompiler input.json (Generated Files) ==="
+          Get-Content "$proj\Generated Files\input.json" -ErrorAction SilentlyContinue
+          Write-Output "=== XamlCompiler output.json (Generated Files) ==="
+          Get-Content "$proj\Generated Files\output.json" -ErrorAction SilentlyContinue
+          Write-Output "=== XamlCompiler input.json (IntDir) ==="
+          Get-Content "$proj\ISmyPCok.WinUI\x64\Release\input.json" -ErrorAction SilentlyContinue
+          Write-Output "=== XamlCompiler output.json (IntDir) ==="
+          Get-Content "$proj\ISmyPCok.WinUI\x64\Release\output.json" -ErrorAction SilentlyContinue
           Write-Output "=== winrt/ISmyPCokWinUI.h ==="
           Get-Content "$proj\Generated Files\winrt\ISmyPCokWinUI.h" -ErrorAction SilentlyContinue
           Write-Output "=== sources/MainWindow.h ==="
