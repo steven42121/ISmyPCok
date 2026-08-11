@@ -46,6 +46,7 @@ jobs:
           } else {
             Write-Output "exists=false" >> $env:GITHUB_OUTPUT
           }
+          exit 0
 
       - name: Prepare third-party dependencies
         shell: pwsh
