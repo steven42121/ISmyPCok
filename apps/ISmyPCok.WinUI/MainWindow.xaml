@@ -56,8 +56,6 @@
                  IsReadOnly="True"
                  AcceptsReturn="True"
                  TextWrapping="Wrap"
-                 FontFamily="Consolas"
-                 VerticalScrollBarVisibility="Auto"
-                 HorizontalScrollBarVisibility="Auto"/>
+                 FontFamily="Consolas"/>
     </Grid>
 </Window>
