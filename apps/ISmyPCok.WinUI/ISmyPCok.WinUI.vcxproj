@@ -41,6 +41,7 @@
     <UseWinUI>true</UseWinUI>
     <WinUISDKReferences>false</WinUISDKReferences>
     <EnableMsixTooling>true</EnableMsixTooling>
+    <ResolveNuGetPackages>false</ResolveNuGetPackages>
   </PropertyGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -119,6 +120,13 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+
+  <Target Name="AddWinMDRefsToXamlCompile" BeforeTargets="MarkupCompilePass2">
+    <ItemGroup>
+      <XamlReferencesToCompile Include="@(ReferencePath)"
+                               Condition="'%(ReferencePath.Extension)' == '.winmd'" />
+    </ItemGroup>
+  </Target>
 
   <Target Name="DumpWinUIProps" AfterTargets="MarkupCompilePass2">
     <Message Importance="high" Text="DUMP XamlLanguage=$(XamlLanguage) XamlLocalAssembly=$(XamlLocalAssembly) CppWinRTProjectWinMD=$(CppWinRTProjectWinMD) OutDir=$(OutDir)" />
