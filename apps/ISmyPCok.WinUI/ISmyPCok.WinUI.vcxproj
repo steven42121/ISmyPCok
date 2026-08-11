@@ -81,9 +81,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Midl Include="MainWindow.idl" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ApplicationDefinition Include="App.xaml" />
     <Page Include="MainWindow.xaml" />
     <Manifest Include="app.manifest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
 
   <ItemGroup>

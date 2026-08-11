@@ -8,7 +8,7 @@ namespace winrt::ISmyPCokWinUI::implementation
     {
         App();
 
-        void OnLaunched(Windows::ApplicationModel::Activation::LaunchActivatedEventArgs const&);
+        void OnLaunched(winrt::Microsoft::UI::Xaml::LaunchActivatedEventArgs const&);
 
     private:
         winrt::Microsoft::UI::Xaml::Window window{ nullptr };
