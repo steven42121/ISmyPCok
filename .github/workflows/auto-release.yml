@@ -110,6 +110,16 @@ jobs:
             Write-Output "----- $($_.FullName) -----"
             Get-Content $_.FullName
           }
+          Write-Output "=== winrt/ISmyPCokWinUI.h ==="
+          Get-Content "$proj\Generated Files\winrt\ISmyPCokWinUI.h" -ErrorAction SilentlyContinue
+          Write-Output "=== sources/MainWindow.h ==="
+          Get-Content "$proj\Generated Files\sources\MainWindow.h" -ErrorAction SilentlyContinue
+          Write-Output "=== cppwinrt_comp.rsp ==="
+          Get-Content "$proj\ISmyPCok.WinUI\x64\Release\ISmyPCok.WinUI.vcxproj.cppwinrt_comp.rsp" -ErrorAction SilentlyContinue
+          Write-Output "=== cppwinrt_ref.rsp ==="
+          Get-Content "$proj\ISmyPCok.WinUI\x64\Release\ISmyPCok.WinUI.vcxproj.cppwinrt_ref.rsp" -ErrorAction SilentlyContinue
+          Write-Output "=== mdmerge.rsp ==="
+          Get-Content "$proj\ISmyPCok.WinUI\x64\Release\ISmyPCok.WinUI.vcxproj.mdmerge.rsp" -ErrorAction SilentlyContinue
 
       - name: Package CLI artifact
         if: github.event_name == 'push' && steps.check.outputs.exists != 'true'

@@ -26,4 +26,12 @@
 #include <winrt/Microsoft.UI.Xaml.Shapes.h>
 #include <winrt/Microsoft.UI.Dispatching.h>
 
+// Project's own C++/WinRT projection header. The XAML-compiler generated
+// MainWindow.xaml.g.h references winrt::ISmyPCokWinUI::implementation::
+// MainWindow_base from this header, but Pass1 did not emit an #include for it
+// (Pass1 has no reference to the project winmd in this MSBuild wiring), so it
+// must be made visible here or the generated MainWindowT template fails to
+// compile with C2143 at "missing ',' before '<'".
+#include <winrt/ISmyPCokWinUI.h>
+
 #include <microsoft.ui.xaml.window.h>
