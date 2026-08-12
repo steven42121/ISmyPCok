@@ -68,7 +68,11 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <!--
+        DISABLE_XAML_GENERATED_MAIN: App.xaml.cpp provides wWinMain. Without this,
+        a compiled App.xaml.g.hpp would also emit wWinMain and fail with LNK2005.
+      -->
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;DISABLE_XAML_GENERATED_MAIN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -77,22 +81,41 @@
     </Link>
   </ItemDefinitionGroup>
 
+  <!--
+    DependentUpon is required by the XAML compiler Pass2 (ClIncludeFiles) so it can
+    pair code-behind with Page/ApplicationDefinition items and emit those pages'
+    .xaml.g.hpp paths into GeneratedXamlPagesFiles, which the targets then add to
+    ClCompile. Without it, GeneratedXamlPagesFiles stays empty, InitializeComponent
+    /Connect/GetBindingConnector are never compiled, and the link fails with LNK2019.
+    This matches the official VS WinUI3 C++ blank-app template.
+  -->
   <ItemGroup>
     <ClInclude Include="pch.h" />
-    <ClInclude Include="App.xaml.h" />
-    <ClInclude Include="MainWindow.xaml.h" />
+    <ClInclude Include="App.xaml.h">
+      <DependentUpon>App.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="MainWindow.xaml.h">
+      <DependentUpon>MainWindow.xaml</DependentUpon>
+    </ClInclude>
   </ItemGroup>
 
   <ItemGroup>
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="App.xaml.cpp" />
-    <ClCompile Include="MainWindow.xaml.cpp" />
+    <ClCompile Include="App.xaml.cpp">
+      <DependentUpon>App.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="MainWindow.xaml.cpp">
+      <DependentUpon>MainWindow.xaml</DependentUpon>
+    </ClCompile>
   </ItemGroup>
 
   <ItemGroup>
-    <Midl Include="MainWindow.idl" />
+    <Midl Include="MainWindow.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>MainWindow.xaml</DependentUpon>
+    </Midl>
   </ItemGroup>
 
   <ItemGroup>
@@ -132,6 +155,27 @@
     <Message Importance="high" Text="DUMP XamlLanguage=$(XamlLanguage) XamlLocalAssembly=$(XamlLocalAssembly) CppWinRTProjectWinMD=$(CppWinRTProjectWinMD) OutDir=$(OutDir)" />
     <Message Importance="high" Text="DUMP WinMDReferenceToCompileCount=@(WinMDReferenceToCompile-&gt;Count()) XamlReferencesToCompileCount=@(XamlReferencesToCompile-&gt;Count()) ReferencePathCount=@(ReferencePath-&gt;Count())" />
     <Message Importance="high" Text="DUMP XamlReferencesToCompile: @(XamlReferencesToCompile)" />
+    <Message Importance="high" Text="DUMP GeneratedXamlPagesFiles: @(GeneratedXamlPagesFiles)" />
+  </Target>
+
+  <!--
+    Safety net: if Pass2 still leaves GeneratedXamlPagesFiles empty (the condition
+    that produced LNK2019 for InitializeComponent), force-compile the page .g.hpp
+    that the XAML compiler already wrote to disk. The normal path is DependentUpon
+    metadata above; this only fires when that association fails.
+  -->
+  <Target Name="EnsureXamlPageCodegenCompiled" AfterTargets="MarkupCompilePass2">
+    <PropertyGroup>
+      <_MainWindowXamlGHpp>$(GeneratedFilesDir)MainWindow.xaml.g.hpp</_MainWindowXamlGHpp>
+    </PropertyGroup>
+    <ItemGroup Condition="'@(GeneratedXamlPagesFiles)' == '' and Exists('$(_MainWindowXamlGHpp)')">
+      <GeneratedXamlPagesFiles Include="$(_MainWindowXamlGHpp)" />
+      <ClCompile Include="$(_MainWindowXamlGHpp)">
+        <CompilerIteration>XamlGenerated</CompilerIteration>
+      </ClCompile>
+    </ItemGroup>
+    <Warning Condition="'@(GeneratedXamlPagesFiles)' == ''"
+             Text="GeneratedXamlPagesFiles is empty after MarkupCompilePass2; page InitializeComponent codegen may be missing from the link." />
   </Target>
 
   <Target Name="DeployCapApi" AfterTargets="Build">
