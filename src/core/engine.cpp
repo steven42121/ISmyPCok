@@ -309,7 +309,11 @@ std::vector<ModulePtr> CollectModules(const std::string& plugin_dir)
 
 std::string Version()
 {
-    return "0.2.0";
+#ifdef ISPCOK_VERSION
+    return ISPCOK_VERSION;
+#else
+    return "unknown";
+#endif
 }
 
 std::vector<std::string> ListModules(const std::string& plugin_dir)

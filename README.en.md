@@ -6,7 +6,7 @@ A PC performance toolkit (C++ / CMake) built on top of [chronoxor/CppBenchmark](
 
 1. CLI: `ispcok_cli`
 2. C ABI SDK: `ispcok_capi` (`extern "C"` exports)
-3. Plugin modules: runtime `.dll` discovery/loading
+3. Plugin modules: runtime discovery/loading (`.dll` on Windows, `.so` / `.dylib` on Linux/macOS)
 
 ## Built-in Modules
 
@@ -72,6 +72,16 @@ cmake --build build --config Release --target ispcok_cli
 .\build\Release\ispcok_cli.exe run --modules cpu_fp32,memory_bw --scenario llm_infer_server
 ```
 
+## Quick Start (Linux / macOS)
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target ispcok_cli
+./build/ispcok_cli list-modules
+./build/ispcok_cli list-scenarios
+./build/ispcok_cli run --modules cpu_fp32,memory_bw --scenario llm_infer_server
+```
+
 ## AVX2 / AVX-512 (Optional)
 
 By default, `cpu_avx2` / `cpu_avx512` may return `not_supported` because ISA targets are not enabled.
@@ -97,6 +107,13 @@ cmake --build build-avx512 --config Release --target ispcok_cli
 ```powershell
 cmake --build build --config Release --target ispcok_tests
 ctest --test-dir build -C Release --output-on-failure
+```
+
+Linux / macOS:
+
+```bash
+cmake --build build --target ispcok_tests
+ctest --test-dir build --output-on-failure
 ```
 
 ## C ABI Exports
@@ -125,6 +142,25 @@ Copy-Item .\build\Release\ispcok_plugin_gpu_vulkan_sample.dll .\plugins\
 .\build\Release\ispcok_cli.exe run --plugin-dir .\plugins --modules gpu_vulkan --scenario game_engine
 ```
 
+Linux / macOS:
+
+```bash
+cmake --build build --target ispcok_plugin_sample_gpu
+mkdir -p plugins
+cp build/ispcok_plugin_gpu_vulkan_sample.so plugins/
+./build/ispcok_cli run --plugin-dir plugins --modules gpu_vulkan --scenario game_engine
+```
+
+## Versioning and Auto Release
+
+The single source of truth for the version is the `VERSION` file at the repository root (currently `26h2-0810`). CMake reads it at configure time and injects the `ISPCOK_VERSION` compile definition; both the CLI `version` field and the C ABI `ispcok_version()` return that value.
+
+After you change `VERSION` and push `main`, `.github/workflows/auto-release.yml` automatically:
+
+- Builds `ispcok_cli`, `ispcok_capi.dll`, `pc_benchmark`, the GPU plugin sample and the WinUI3 desktop app
+- Runs the unit tests
+- If no Release exists for the version yet, creates a tag (e.g. `26h2-0810`) and uploads Windows x64 CLI and WinUI packages
+
 ## Notes
 
 - `pc_benchmark` and `ispcok_core` coexist intentionally. Use `pc_benchmark` for raw CppBenchmark experiments and `ispcok_core` for modular integration.
@@ -133,6 +169,14 @@ Copy-Item .\build\Release\ispcok_plugin_gpu_vulkan_sample.dll .\plugins\
 
 If `third_party/CppBenchmark` is missing:
 
+Windows:
+
 ```powershell
 .\scripts\fetch_3rd_party.ps1
+```
+
+Linux / macOS:
+
+```bash
+./scripts/fetch_3rd_party.sh
 ```

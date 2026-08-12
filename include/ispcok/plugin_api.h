@@ -3,6 +3,17 @@
 
 #include <stddef.h>
 
+#if defined(_WIN32)
+/* Plugins are always loaded via LoadLibrary/GetProcAddress, never linked
+   against an import library, so always export. The build-define
+   ISPCOK_PLUGIN_BUILDING_DLL is accepted for compatibility but not required. */
+#define ISPCOK_PLUGIN_EXPORT __declspec(dllexport)
+#elif defined(__GNUC__) || defined(__clang__)
+#define ISPCOK_PLUGIN_EXPORT __attribute__((visibility("default")))
+#else
+#define ISPCOK_PLUGIN_EXPORT
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

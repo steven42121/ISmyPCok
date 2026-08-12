@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <CppWinRTOptimized>true</CppWinRTOptimized>
+    <CppWinRTRootNamespaceAutoMerge>true</CppWinRTRootNamespaceAutoMerge>
+    <CppWinRTUsePrefixes>true</CppWinRTUsePrefixes>
+    <MinimalCoreWin>true</MinimalCoreWin>
+    <MinimumVisualStudioVersion>17.0</MinimumVisualStudioVersion>
+    <ProjectGuid>{2F7A3C1B-8D4E-4B6F-9A1C-5E0D6B7C8D9E}</ProjectGuid>
+    <ProjectName>ISmyPCok.WinUI</ProjectName>
+    <RootNamespace>ISmyPCokWinUI</RootNamespace>
+    <!--
+      TargetName must equal RootNamespace so produced binaries (.exe/.pri/etc.)
+      have a name matching the project .winmd. Without this, the XAML compiler
+      Pass2 default LocalAssembly ($(OutputPath)\$(TargetName).winmd) points at
+      "ISmyPCok.WinUI.winmd" while MIDL emits "ISmyPCokWinUI.winmd", so Pass2
+      cannot resolve the project's own runtimeclass and generates a broken
+      MainWindowT/AppT template. This is exactly what the official VS WinUI3
+      C++ template ships with.
+    -->
+    <TargetName>$(RootNamespace)</TargetName>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.17763.0</WindowsTargetPlatformMinVersion>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <WindowsPackageType>None</WindowsPackageType>
+    <AppContainerApplication>false</AppContainerApplication>
+    <AppxPackage>false</AppxPackage>
+    <ApplicationType>Windows Store</ApplicationType>
+    <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <ResolveNuGetPackages>false</ResolveNuGetPackages>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <DesktopCompatible>true</DesktopCompatible>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+
+  <PropertyGroup Label="UserMacros" />
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <!--
+        DISABLE_XAML_GENERATED_MAIN: App.xaml.cpp provides wWinMain. Without this,
+        a compiled App.xaml.g.hpp would also emit wWinMain and fail with LNK2005.
+      -->
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;DISABLE_XAML_GENERATED_MAIN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <!--
+    DependentUpon is required by the XAML compiler Pass2 (ClIncludeFiles) so it can
+    pair code-behind with Page/ApplicationDefinition items and emit those pages'
+    .xaml.g.hpp paths into GeneratedXamlPagesFiles, which the targets then add to
+    ClCompile. Without it, GeneratedXamlPagesFiles stays empty, InitializeComponent
+    /Connect/GetBindingConnector are never compiled, and the link fails with LNK2019.
+    This matches the official VS WinUI3 C++ blank-app template.
+  -->
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="App.xaml.h">
+      <DependentUpon>App.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="MainWindow.xaml.h">
+      <DependentUpon>MainWindow.xaml</DependentUpon>
+    </ClInclude>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="App.xaml.cpp">
+      <DependentUpon>App.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="MainWindow.xaml.cpp">
+      <DependentUpon>MainWindow.xaml</DependentUpon>
+    </ClCompile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Midl Include="MainWindow.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>MainWindow.xaml</DependentUpon>
+    </Midl>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml" />
+    <Page Include="MainWindow.xaml" />
+    <Manifest Include="app.manifest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK">
+      <Version>1.5.240627000</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Windows.CppWinRT">
+      <Version>2.0.240405.15</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools">
+      <Version>10.0.22621.3233</Version>
+    </PackageReference>
+  </ItemGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+
+  <Target Name="AddWinMDRefsToXamlCompile" BeforeTargets="MarkupCompilePass2">
+    <ItemGroup>
+      <XamlReferencesToCompile Include="@(ReferencePath)"
+                               Condition="'%(ReferencePath.Extension)' == '.winmd'" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="DumpWinUIProps" AfterTargets="MarkupCompilePass2">
+    <Message Importance="high" Text="DUMP XamlLanguage=$(XamlLanguage) XamlLocalAssembly=$(XamlLocalAssembly) CppWinRTProjectWinMD=$(CppWinRTProjectWinMD) OutDir=$(OutDir)" />
+    <Message Importance="high" Text="DUMP WinMDReferenceToCompileCount=@(WinMDReferenceToCompile-&gt;Count()) XamlReferencesToCompileCount=@(XamlReferencesToCompile-&gt;Count()) ReferencePathCount=@(ReferencePath-&gt;Count())" />
+    <Message Importance="high" Text="DUMP XamlReferencesToCompile: @(XamlReferencesToCompile)" />
+    <Message Importance="high" Text="DUMP GeneratedXamlPagesFiles: @(GeneratedXamlPagesFiles)" />
+  </Target>
+
+  <!--
+    Safety net: if Pass2 still leaves GeneratedXamlPagesFiles empty (the condition
+    that produced LNK2019 for InitializeComponent), force-compile the page .g.hpp
+    that the XAML compiler already wrote to disk. The normal path is DependentUpon
+    metadata above; this only fires when that association fails.
+  -->
+  <Target Name="EnsureXamlPageCodegenCompiled" AfterTargets="MarkupCompilePass2">
+    <PropertyGroup>
+      <_MainWindowXamlGHpp>$(GeneratedFilesDir)MainWindow.xaml.g.hpp</_MainWindowXamlGHpp>
+    </PropertyGroup>
+    <ItemGroup Condition="'@(GeneratedXamlPagesFiles)' == '' and Exists('$(_MainWindowXamlGHpp)')">
+      <GeneratedXamlPagesFiles Include="$(_MainWindowXamlGHpp)" />
+      <ClCompile Include="$(_MainWindowXamlGHpp)">
+        <CompilerIteration>XamlGenerated</CompilerIteration>
+      </ClCompile>
+    </ItemGroup>
+    <Warning Condition="'@(GeneratedXamlPagesFiles)' == ''"
+             Text="GeneratedXamlPagesFiles is empty after MarkupCompilePass2; page InitializeComponent codegen may be missing from the link." />
+  </Target>
+
+  <Target Name="DeployCapApi" AfterTargets="Build">
+    <ItemGroup>
+      <_CapApiCandidates Include="$(ProjectDir)..\..\build\Release\ispcok_capi.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_CapApiCandidates)" DestinationFolder="$(OutDir)"
+          Condition="Exists('%(Identity)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

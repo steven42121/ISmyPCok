@@ -11,7 +11,7 @@ This repository currently contains two executable stacks:
 2. `ispcok_core` ecosystem:
 - `ispcok_cli` for command-line orchestration.
 - `ispcok_capi` for stable C ABI integration.
-- Optional plugin `.dll` modules loaded at runtime.
+- Optional plugin modules loaded at runtime (`.dll` on Windows, `.so` / `.dylib` on Linux/macOS).
 - Scenario scoring in `src/core/engine.cpp`.
 
 These two stacks intentionally coexist during migration. New modular features should be built in `ispcok_core`.
@@ -101,11 +101,18 @@ Current behavior:
 ## Tests
 
 - Unit tests: `tests/ispcok_tests.cpp`
-- Run:
+- Run (Windows):
 
 ```powershell
 cmake --build build --config Release --target ispcok_tests
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-- Includes plugin negative tests for malformed plugin outputs.
+- Run (Linux / macOS):
+
+```bash
+cmake --build build --target ispcok_tests
+ctest --test-dir build --output-on-failure
+```
+
+- Includes plugin negative tests for malformed plugin outputs (Windows / Linux / macOS).

@@ -6,7 +6,7 @@
 
 1. CLI：`ispcok_cli`
 2. C ABI SDK：`ispcok_capi`（`extern "C"` 导出）
-3. 插件模块：扫描目录下 `.dll` 动态加载
+3. 插件模块：扫描目录下 `.dll`（Windows）/ `.so`（Linux/macOS）动态加载
 
 ## 当前已实现模块（内建）
 
@@ -72,6 +72,16 @@ cmake --build build --config Release --target ispcok_cli
 .\build\Release\ispcok_cli.exe run --modules cpu_fp32,memory_bw --scenario llm_infer_server
 ```
 
+## 快速开始（Linux / macOS）
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target ispcok_cli
+./build/ispcok_cli list-modules
+./build/ispcok_cli list-scenarios
+./build/ispcok_cli run --modules cpu_fp32,memory_bw --scenario llm_infer_server
+```
+
 ## AVX2 / AVX-512（可选）
 
 默认构建下，`cpu_avx2` / `cpu_avx512` 会返回 `not_supported`（因为没启用对应编译目标）。
@@ -125,6 +135,25 @@ Copy-Item .\build\Release\ispcok_plugin_gpu_vulkan_sample.dll .\plugins\
 .\build\Release\ispcok_cli.exe run --plugin-dir .\plugins --modules gpu_vulkan --scenario game_engine
 ```
 
+Linux / macOS：
+
+```bash
+cmake --build build --target ispcok_plugin_sample_gpu
+mkdir -p plugins
+cp build/ispcok_plugin_gpu_vulkan_sample.so plugins/
+./build/ispcok_cli run --plugin-dir plugins --modules gpu_vulkan --scenario game_engine
+```
+
+## 版本与自动发布
+
+版本单一事实来源：仓库根目录 `VERSION` 文件（当前 `26h2-0810`）。构建时由 CMake 读取并注入 `ISPCOK_VERSION` 编译定义，CLI 的 `version` 字段、C ABI 的 `ispcok_version()` 均返回该值。
+
+修改 `VERSION` 并推送 `main` 后，`.github/workflows/auto-release.yml` 会自动：
+
+- 构建 `ispcok_cli`、`ispcok_capi.dll`、`pc_benchmark`、GPU 插件样例与 WinUI3 桌面应用
+- 运行单元测试
+- 若该版本尚无 Release，则创建 tag（如 `26h2-0810`）并上传 Windows x64 的 CLI 与 WinUI 压缩包
+
 ## 注意
 
 - `pc_benchmark` 与 `ispcok_core` 是两套并行体系。`pc_benchmark` 用于 CppBenchmark 原始实验；模块化扩展以 `ispcok_core`（CLI/CAPI/Plugin）为主。
@@ -133,6 +162,14 @@ Copy-Item .\build\Release\ispcok_plugin_gpu_vulkan_sample.dll .\plugins\
 
 如果你把 `third_party/CppBenchmark` 删除了，可执行：
 
+Windows：
+
 ```powershell
 .\scripts\fetch_3rd_party.ps1
+```
+
+Linux / macOS：
+
+```bash
+./scripts/fetch_3rd_party.sh
 ```

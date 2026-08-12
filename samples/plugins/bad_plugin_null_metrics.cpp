@@ -1,6 +1,6 @@
 #include "ispcok/plugin_api.h"
 
-extern "C" __declspec(dllexport) int ispcok_get_module_v1(IsPcOkPluginModuleV1* out_module);
+extern "C" ISPCOK_PLUGIN_EXPORT int ispcok_get_module_v1(IsPcOkPluginModuleV1* out_module);
 
 namespace
 {
@@ -17,7 +17,7 @@ int RunBadNullMetrics(IsPcOkPluginResultV1* out_result)
 }
 } // namespace
 
-extern "C" __declspec(dllexport) int ispcok_get_module_v1(IsPcOkPluginModuleV1* out_module)
+extern "C" ISPCOK_PLUGIN_EXPORT int ispcok_get_module_v1(IsPcOkPluginModuleV1* out_module)
 {
     if (out_module == nullptr)
         return 1;

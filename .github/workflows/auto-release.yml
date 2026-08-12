@@ -1,0 +1,175 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'VERSION'
+  pull_request:
+    paths:
+      - 'VERSION'
+      - 'apps/**'
+      - 'CMakeLists.txt'
+      - 'src/**'
+      - 'include/**'
+      - 'samples/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $v = (Get-Content VERSION -Raw).Trim()
+          Write-Output "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Check whether release already exists
+        id: check
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.version.outputs.version }}"
+          $found = gh release view $tag --json tagName 2>$null
+          if ($LASTEXITCODE -eq 0 -and $null -ne $found) {
+            Write-Output "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Output "exists=false" >> $env:GITHUB_OUTPUT
+          }
+          exit 0
+
+      - name: Prepare third-party dependencies
+        shell: pwsh
+        run: ./scripts/fetch_3rd_party.ps1
+
+      - name: Configure core (Release x64)
+        shell: pwsh
+        run: cmake -S . -B build -A x64
+
+      - name: Build core (CLI / CAPI / plugins / pc_benchmark)
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --target ispcok_cli
+          cmake --build build --config Release --target ispcok_capi
+          cmake --build build --config Release --target ispcok_plugin_sample_gpu
+          cmake --build build --config Release --target pc_benchmark
+
+      - name: Run core unit tests
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --target ispcok_tests
+          ctest --test-dir build -C Release --output-on-failure
+
+      - name: Install UWP C++ v143 build tools
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -property installationPath | Select-Object -First 1
+          if (-not $vsPath) { throw "Visual Studio install path not found" }
+          $setup = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe"
+          $argList = "modify --installPath `"$vsPath`" --add Microsoft.VisualStudio.ComponentGroup.UWP.VC --quiet --norestart"
+          $p = Start-Process -FilePath $setup -ArgumentList $argList -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "VS setup.exe modify failed with exit code $($p.ExitCode)" }
+
+      - name: Build WinUI app (Release x64)
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $msbuild = & $vswhere -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+          if (-not $msbuild) { throw "MSBuild not found" }
+          & $msbuild apps\ISmyPCok.WinUI\ISmyPCok.WinUI.vcxproj /p:Configuration=Release /p:Platform=x64 /restore
+          if ($LASTEXITCODE -ne 0) { throw "MSBuild failed with exit code $LASTEXITCODE" }
+          Copy-Item build\Release\ispcok_capi.dll apps\ISmyPCok.WinUI\x64\Release\ -Force
+
+      - name: Dump WinUI generated files (diagnostics)
+        if: always()
+        shell: pwsh
+        run: |
+          $proj = "apps\ISmyPCok.WinUI"
+          Write-Output "=== Generated Files tree ==="
+          Get-ChildItem -Recurse "$proj\Generated Files" -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+          Write-Output "=== OutDir tree (winmd/exe/dll) ==="
+          Get-ChildItem -Recurse "$proj\x64\Release" -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in '.winmd','.exe','.dll' } | ForEach-Object { $_.FullName }
+          Write-Output "=== Generated .g.h contents ==="
+          Get-ChildItem -Recurse "$proj\Generated Files" -Filter *.g.h -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Output "----- $($_.FullName) -----"
+            Get-Content $_.FullName
+          }
+          Write-Output "=== Generated .xaml.g.hpp contents ==="
+          Get-ChildItem -Recurse "$proj\Generated Files" -Filter *.xaml.g.hpp -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Output "----- $($_.FullName) -----"
+            Get-Content $_.FullName
+          }
+          Write-Output "=== Generated .g.cpp contents ==="
+          Get-ChildItem -Recurse "$proj\Generated Files" -Filter *.g.cpp -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Output "----- $($_.FullName) -----"
+            Get-Content $_.FullName
+          }
+          Write-Output "=== XamlCompiler input.json (Generated Files) ==="
+          Get-Content "$proj\Generated Files\input.json" -ErrorAction SilentlyContinue
+          Write-Output "=== XamlCompiler output.json (Generated Files) ==="
+          Get-Content "$proj\Generated Files\output.json" -ErrorAction SilentlyContinue
+          Write-Output "=== XamlCompiler input.json (IntDir) ==="
+          Get-Content "$proj\ISmyPCok.WinUI\x64\Release\input.json" -ErrorAction SilentlyContinue
+          Write-Output "=== XamlCompiler output.json (IntDir) ==="
+          Get-Content "$proj\ISmyPCok.WinUI\x64\Release\output.json" -ErrorAction SilentlyContinue
+          Write-Output "=== winrt/ISmyPCokWinUI.h ==="
+          Get-Content "$proj\Generated Files\winrt\ISmyPCokWinUI.h" -ErrorAction SilentlyContinue
+          Write-Output "=== sources/MainWindow.h ==="
+          Get-Content "$proj\Generated Files\sources\MainWindow.h" -ErrorAction SilentlyContinue
+          Write-Output "=== cppwinrt_comp.rsp ==="
+          Get-Content "$proj\ISmyPCok.WinUI\x64\Release\ISmyPCok.WinUI.vcxproj.cppwinrt_comp.rsp" -ErrorAction SilentlyContinue
+          Write-Output "=== cppwinrt_ref.rsp ==="
+          Get-Content "$proj\ISmyPCok.WinUI\x64\Release\ISmyPCok.WinUI.vcxproj.cppwinrt_ref.rsp" -ErrorAction SilentlyContinue
+          Write-Output "=== mdmerge.rsp ==="
+          Get-Content "$proj\ISmyPCok.WinUI\x64\Release\ISmyPCok.WinUI.vcxproj.mdmerge.rsp" -ErrorAction SilentlyContinue
+
+      - name: Package CLI artifact
+        if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.version }}"
+          $zipName = "ISmyPCok-$tag-windows-x64-cli.zip"
+          Compress-Archive -Path @(
+            "build/Release/ispcok_cli.exe",
+            "build/Release/ispcok_capi.dll",
+            "build/Release/ispcok_plugin_gpu_vulkan_sample.dll",
+            "build/Release/pc_benchmark.exe",
+            "README.md",
+            "LICENSE"
+          ) -DestinationPath $zipName -Force
+          Write-Output "PACKAGE_CLI=$zipName" >> $env:GITHUB_ENV
+
+      - name: Package WinUI artifact
+        if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.version }}"
+          $zipName = "ISmyPCok-$tag-windows-x64-winui.zip"
+          $outDir = "apps\ISmyPCok.WinUI\x64\Release"
+          Compress-Archive -Path (Get-ChildItem $outDir | Select-Object -ExpandProperty FullName) -DestinationPath $zipName -Force
+          Write-Output "PACKAGE_WINUI=$zipName" >> $env:GITHUB_ENV
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ISmyPCok ${{ steps.version.outputs.version }}
+          body: |
+            Auto-generated release for version `${{ steps.version.outputs.version }}`.
+
+            - CLI (ispcok_cli) + C ABI (ispcok_capi.dll) + GPU plugin sample
+            - WinUI3 desktop app (self-contained)
+          files: |
+            ISmyPCok-*.zip

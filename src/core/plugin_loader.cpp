@@ -13,13 +13,46 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#else
+#include <dlfcn.h>
 #endif
 
 namespace ispcok {
 namespace {
 
-#if defined(_WIN32)
 constexpr size_t kMaxPluginMetrics = 1024;
+
+#if defined(_WIN32)
+using PluginHandle = HMODULE;
+inline PluginHandle OpenPlugin(const std::filesystem::path& path)
+{
+    return LoadLibraryW(path.wstring().c_str());
+}
+inline void ClosePlugin(PluginHandle handle)
+{
+    if (handle != nullptr)
+        FreeLibrary(handle);
+}
+inline void* FindPluginSymbol(PluginHandle handle, const char* symbol)
+{
+    return reinterpret_cast<void*>(GetProcAddress(handle, symbol));
+}
+#else
+using PluginHandle = void*;
+inline PluginHandle OpenPlugin(const std::filesystem::path& path)
+{
+    return dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+}
+inline void ClosePlugin(PluginHandle handle)
+{
+    if (handle != nullptr)
+        dlclose(handle);
+}
+inline void* FindPluginSymbol(PluginHandle handle, const char* symbol)
+{
+    return dlsym(handle, symbol);
+}
+#endif
 
 #if defined(_MSC_VER)
 bool SafeInvokePluginRun(IsPcOkPluginRunV1 run, IsPcOkPluginResultV1* out_result, int* out_rc)
@@ -39,7 +72,7 @@ bool SafeInvokePluginRun(IsPcOkPluginRunV1 run, IsPcOkPluginResultV1* out_result
 class PluginModule final : public IModule
 {
 public:
-    PluginModule(HMODULE handle, IsPcOkPluginModuleV1 plugin_module)
+    PluginModule(PluginHandle handle, IsPcOkPluginModuleV1 plugin_module)
         : handle_(handle),
           plugin_module_(plugin_module),
           id_(plugin_module.id != nullptr ? plugin_module.id : "unknown_plugin"),
@@ -49,7 +82,7 @@ public:
     ~PluginModule() override
     {
         if (handle_ != nullptr)
-            FreeLibrary(handle_);
+            ClosePlugin(handle_);
     }
 
     std::string id() const override { return id_; }
@@ -123,7 +156,7 @@ public:
     }
 
 private:
-    HMODULE handle_ = nullptr;
+    PluginHandle handle_ = nullptr;
     IsPcOkPluginModuleV1 plugin_module_{};
     std::string id_;
     std::string category_;
@@ -131,28 +164,36 @@ private:
 
 ModulePtr TryLoadPlugin(const std::filesystem::path& path)
 {
-    const std::wstring wide = path.wstring();
-    HMODULE handle = LoadLibraryW(wide.c_str());
+    PluginHandle handle = OpenPlugin(path);
     if (handle == nullptr)
         return nullptr;
 
-    auto entry = reinterpret_cast<IsPcOkGetModuleV1>(GetProcAddress(handle, ISPCOK_PLUGIN_ENTRYPOINT_V1));
+    auto entry = reinterpret_cast<IsPcOkGetModuleV1>(FindPluginSymbol(handle, ISPCOK_PLUGIN_ENTRYPOINT_V1));
     if (entry == nullptr)
     {
-        FreeLibrary(handle);
+        ClosePlugin(handle);
         return nullptr;
     }
 
     IsPcOkPluginModuleV1 module{};
     if ((entry(&module) != 0) || (module.id == nullptr) || (module.run == nullptr))
     {
-        FreeLibrary(handle);
+        ClosePlugin(handle);
         return nullptr;
     }
 
     return std::make_shared<PluginModule>(handle, module);
 }
+
+bool HasPluginExtension(const std::filesystem::path& path)
+{
+    const std::string extension = path.extension().string();
+#if defined(_WIN32)
+    return (extension == ".dll");
+#else
+    return (extension == ".so") || (extension == ".dylib");
 #endif
+}
 
 } // namespace
 
@@ -162,7 +203,6 @@ std::vector<ModulePtr> LoadPluginModules(const std::string& plugin_dir)
     if (plugin_dir.empty())
         return modules;
 
-#if defined(_WIN32)
     std::error_code ec;
     const std::filesystem::path base(plugin_dir);
     if (!std::filesystem::exists(base, ec))
@@ -174,15 +214,12 @@ std::vector<ModulePtr> LoadPluginModules(const std::string& plugin_dir)
             break;
         if (!entry.is_regular_file())
             continue;
-        if (entry.path().extension() != ".dll")
+        if (!HasPluginExtension(entry.path()))
             continue;
         ModulePtr module = TryLoadPlugin(entry.path());
         if (module != nullptr)
             modules.emplace_back(std::move(module));
     }
-#else
-    (void)plugin_dir;
-#endif
 
     return modules;
 }
