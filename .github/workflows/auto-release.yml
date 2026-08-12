@@ -105,6 +105,11 @@ jobs:
             Write-Output "----- $($_.FullName) -----"
             Get-Content $_.FullName
           }
+          Write-Output "=== Generated .xaml.g.hpp contents ==="
+          Get-ChildItem -Recurse "$proj\Generated Files" -Filter *.xaml.g.hpp -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Output "----- $($_.FullName) -----"
+            Get-Content $_.FullName
+          }
           Write-Output "=== Generated .g.cpp contents ==="
           Get-ChildItem -Recurse "$proj\Generated Files" -Filter *.g.cpp -ErrorAction SilentlyContinue | ForEach-Object {
             Write-Output "----- $($_.FullName) -----"
