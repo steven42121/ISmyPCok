@@ -64,6 +64,25 @@ jobs:
           cmake --build build --config Release --target ispcok_plugin_sample_gpu
           cmake --build build --config Release --target pc_benchmark
 
+      - name: Copy VC runtime DLLs into release outputs
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -property installationPath | Select-Object -First 1
+          if (-not $vsPath) { throw "Visual Studio install path not found" }
+          $redistRoot = Get-ChildItem (Join-Path $vsPath "VC\Redist\MSVC") -Directory -ErrorAction SilentlyContinue |
+            Sort-Object { $_.Name } -Descending | Select-Object -First 1
+          if (-not $redistRoot) { throw "VC redistributable folder not found" }
+          $crtDir = Join-Path $redistRoot.FullName "x64\Microsoft.VC143.CRT"
+          if (-not (Test-Path $crtDir)) { throw "VC143 CRT folder not found: $crtDir" }
+          $dlls = @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")
+          foreach ($dll in $dlls) {
+            $src = Join-Path $crtDir $dll
+            if (-not (Test-Path $src)) { throw "Missing VC runtime: $dll" }
+            Copy-Item $src build\Release\ -Force
+          }
+          Write-Output "Copied VC runtime DLLs to build\Release"
+
       - name: Run core unit tests
         shell: pwsh
         run: |
@@ -145,10 +164,49 @@ jobs:
             "build/Release/ispcok_capi.dll",
             "build/Release/ispcok_plugin_gpu_vulkan_sample.dll",
             "build/Release/pc_benchmark.exe",
+            "build/Release/msvcp140.dll",
+            "build/Release/vcruntime140.dll",
+            "build/Release/vcruntime140_1.dll",
             "README.md",
             "LICENSE"
           ) -DestinationPath $zipName -Force
           Write-Output "PACKAGE_CLI=$zipName" >> $env:GITHUB_ENV
+
+      - name: Smoke test packaged CLI (list + benchmark run)
+        if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.version }}"
+          $staging = "staging-cli"
+          if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
+          New-Item -ItemType Directory -Path $staging | Out-Null
+          Expand-Archive -Path "ISmyPCok-$tag-windows-x64-cli.zip" -DestinationPath $staging -Force
+
+          Write-Output "=== verify VC runtime DLLs are bundled ==="
+          foreach ($dll in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
+            if (-not (Test-Path "$staging\$dll")) { throw "Missing bundled runtime DLL: $dll" }
+          }
+
+          Write-Output "=== ispcok_cli list-modules ==="
+          & "$staging\ispcok_cli.exe" list-modules
+          if ($LASTEXITCODE -ne 0) { throw "list-modules failed with exit code $LASTEXITCODE" }
+
+          Write-Output "=== ispcok_cli run (game_engine, restricted modules) ==="
+          $json = & "$staging\ispcok_cli.exe" run --modules cpu_fp32,memory_bw,net_rtt --scenario game_engine
+          $rc = $LASTEXITCODE
+          if ($rc -ne 0) { throw "CLI benchmark run failed with exit code $rc" }
+          $json | Out-Host
+          if ($json -notmatch '"score"') { throw "CLI benchmark output missing score" }
+
+          Write-Output "=== pc_benchmark list ==="
+          & "$staging\pc_benchmark.exe" -l
+          if ($LASTEXITCODE -ne 0) { throw "pc_benchmark list failed with exit code $LASTEXITCODE" }
+
+          Write-Output "=== pc_benchmark run (filtered, quick) ==="
+          & "$staging\pc_benchmark.exe" -f "cpu.integer_hash" -q -o json
+          if ($LASTEXITCODE -ne 0) { throw "pc_benchmark run failed with exit code $LASTEXITCODE" }
+
+          Write-Output "SMOKE TEST OK"
 
       - name: Package WinUI artifact
         if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
@@ -157,6 +215,11 @@ jobs:
           $tag = "${{ steps.version.outputs.version }}"
           $zipName = "ISmyPCok-$tag-windows-x64-winui.zip"
           $outDir = "apps\ISmyPCok.WinUI\x64\Release"
+          $runtimeFiles = @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")
+          foreach ($dll in $runtimeFiles) {
+            Copy-Item build\Release\$dll $outDir -Force
+            Copy-Item build\Release\$dll (Join-Path $outDir "ISmyPCok.WinUI") -Force -ErrorAction SilentlyContinue
+          }
           Compress-Archive -Path (Get-ChildItem $outDir | Select-Object -ExpandProperty FullName) -DestinationPath $zipName -Force
           Write-Output "PACKAGE_WINUI=$zipName" >> $env:GITHUB_ENV
 
