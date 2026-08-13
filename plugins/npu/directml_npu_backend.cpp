@@ -4,6 +4,7 @@
 #include "../common/report_helpers.h"
 
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 #include <d3d12.h>
 #include <directml.h>
@@ -217,9 +218,8 @@ int RunNpuBackend(IsPcOkPluginResultV1* out_result)
     tensor_buffer_desc.Flags = DML_TENSOR_FLAG_NONE;
     tensor_buffer_desc.DimensionCount = 4;
     tensor_buffer_desc.Sizes = tensor_sizes;
-    tensor_buffer_desc.TotalTensorSizeInBytes = DMLCalcBufferTensorSize(
-        tensor_buffer_desc.DataType, tensor_buffer_desc.DimensionCount,
-        tensor_buffer_desc.Sizes, nullptr);
+    constexpr UINT64 tensor_element_count = kNpuMatMulN * kNpuMatMulN;
+    tensor_buffer_desc.TotalTensorSizeInBytes = (tensor_element_count * sizeof(std::uint16_t) + 3U) & ~3ULL;
     DML_TENSOR_DESC tensor_desc{DML_TENSOR_TYPE_BUFFER, &tensor_buffer_desc};
 
     DML_GEMM_OPERATOR_DESC gemm_desc{};

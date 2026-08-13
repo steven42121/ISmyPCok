@@ -63,12 +63,25 @@ jobs:
       - name: Build core (CLI / CAPI / plugins / pc_benchmark)
         shell: pwsh
         run: |
-          cmake --build build --config Release --target ispcok_cli
-          cmake --build build --config Release --target ispcok_capi
-          cmake --build build --config Release --target ispcok_plugin_sample_gpu
-          cmake --build build --config Release --target ispcok_plugin_gpu_dx12
-          cmake --build build --config Release --target ispcok_plugin_npu
-          cmake --build build --config Release --target pc_benchmark
+          $targets = @(
+            "ispcok_cli",
+            "ispcok_capi",
+            "ispcok_plugin_sample_gpu",
+            "ispcok_plugin_gpu_dx12",
+            "ispcok_plugin_npu",
+            "pc_benchmark"
+          )
+          foreach ($target in $targets) {
+            cmake --build build --config Release --target $target
+            if ($LASTEXITCODE -ne 0) { throw "Build failed for target $target with exit code $LASTEXITCODE" }
+          }
+
+          $pluginDir = "build\plugins\Release"
+          foreach ($plugin in @("ispcok_plugin_gpu_dx12.dll", "ispcok_plugin_npu.dll")) {
+            $source = Join-Path $pluginDir $plugin
+            if (-not (Test-Path $source)) { throw "Plugin output not found: $source" }
+            Copy-Item $source build\Release\ -Force
+          }
 
       - name: Validate Windows accelerator plugins
         shell: pwsh

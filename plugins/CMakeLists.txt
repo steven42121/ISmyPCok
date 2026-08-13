@@ -28,11 +28,6 @@ function(ispcok_configure_plugin plugin_name)
         OUTPUT_NAME "${ARG_OUTPUT_NAME}"
         POSITION_INDEPENDENT_CODE ON
     )
-    if(WIN32)
-        set_target_properties(${plugin_name} PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-        )
-    endif()
     if(MSVC)
         target_compile_options(${plugin_name} PRIVATE /W4 /permissive-)
     else()
