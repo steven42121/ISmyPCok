@@ -1,9 +1,10 @@
 # Build outputs
 /build/
+/build-*/
 /out/
 /dist/
 /cmake-build-*/
-/plugins/
+/plugins/vulkan/matmul.spv
 
 # Visual Studio
 /.vs/
@@ -35,4 +36,3 @@ CTestTestfile.cmake
 
 # Third-party working copy (reproducible via script)
 /third_party/CppBenchmark/
-

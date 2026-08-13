@@ -17,6 +17,21 @@ namespace
     const char kEntryRunModules[] = "ispcok_run_modules";
     const char kEntryFreeString[] = "ispcok_free_string";
 
+    std::wstring CapiPath()
+    {
+        std::wstring path(32768, L'\0');
+        const DWORD length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
+        if ((length == 0) || (length >= path.size()))
+            return kCapiDll;
+        path.resize(length);
+        const std::size_t separator = path.find_last_of(L"\\/");
+        if (separator == std::wstring::npos)
+            return kCapiDll;
+        path.resize(separator + 1);
+        path += kCapiDll;
+        return path;
+    }
+
     using VersionFn = const char* (*)();
     using RunModulesFn = int (*)(const char*, const char*, const char*, char**);
     using FreeStringFn = void (*)(char*);
@@ -30,7 +45,8 @@ namespace
 
         bool Load()
         {
-            module = LoadLibraryW(kCapiDll);
+            const std::wstring path = CapiPath();
+            module = LoadLibraryW(path.c_str());
             if (module == nullptr)
                 return false;
             version = reinterpret_cast<VersionFn>(GetProcAddress(module, kEntryVersion));

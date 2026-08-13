@@ -165,11 +165,64 @@ bool TestBadPluginGuardrails(const std::string& plugin_dir)
     return ok;
 }
 
+bool TestAcceleratorModulesDegradeGracefully()
+{
+    // Without any GPU SDK or plugin, the four accelerator modules must degrade
+    // to "not_supported" with an explanatory message instead of failing the
+    // run, crashing, or reporting a fabricated score.
+    const std::vector<std::string> accelerator_ids = {"gpu_vulkan", "cuda", "hip", "xpu"};
+    ispcok::RunOptions options;
+    options.modules = accelerator_ids;
+    const ispcok::RunReport report = ispcok::Run(options);
+
+    bool ok = true;
+    ok = ok && Expect(report.modules.size() == accelerator_ids.size(), "all accelerator modules should be discovered");
+
+    for (const auto& module : report.modules)
+    {
+        ok = ok && Expect(module.status != "not_implemented", std::string(module.id) + " should no longer be a not_implemented placeholder");
+        ok = ok && Expect(module.status == "ok" || module.status == "not_supported" || module.status == "error",
+                          std::string(module.id) + " should be ok, not_supported, or error, got " + module.status);
+        if (module.status == "ok")
+            ok = ok && Expect(module.score > 0.0, std::string(module.id) + " ok result should have a positive score");
+        if (module.status == "not_supported")
+        {
+            ok = ok && Expect(module.score == 0.0, std::string(module.id) + " not_supported should have score 0");
+            ok = ok && Expect(!module.message.empty(), std::string(module.id) + " not_supported should carry an explanatory message");
+        }
+    }
+    return ok;
+}
+
+bool TestPluginOverrideAcceleratorModule(const std::string& real_plugin_dir)
+{
+    // A plugin with the same id as a builtin accelerator module must replace
+    // the builtin module via the existing override mechanism.
+    if (real_plugin_dir.empty() || !std::filesystem::exists(real_plugin_dir))
+        return Skip("real Vulkan plugin was not built, skipping plugin override checks");
+
+    ispcok::RunOptions options;
+    options.plugin_dir = real_plugin_dir;
+    options.modules = {"gpu_vulkan"};
+    const ispcok::RunReport report = ispcok::Run(options);
+
+    bool ok = true;
+    ok = ok && Expect(report.modules.size() == 1, "gpu_vulkan should be discovered from the plugin directory");
+    if (!report.modules.empty())
+    {
+        ok = ok && Expect(report.modules[0].plugin == true, "gpu_vulkan result should come from a plugin");
+        ok = ok && Expect(report.modules[0].status == "ok" || report.modules[0].status == "not_supported" || report.modules[0].status == "error",
+                          "plugin gpu_vulkan should be ok, not_supported, or error");
+    }
+    return ok;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
 {
     std::string plugin_dir;
+    std::string real_plugin_dir;
     if (argc >= 2)
         plugin_dir = argv[1];
     else
@@ -179,6 +232,8 @@ int main(int argc, char** argv)
         if (!ec)
             plugin_dir = exe_path.parent_path().string();
     }
+    if (argc >= 3)
+        real_plugin_dir = argv[2];
 
     const std::vector<std::pair<std::string, std::function<bool()>>> tests = {
         {"JsonEscapesControlChars", &TestJsonEscapesControlChars},
@@ -186,7 +241,9 @@ int main(int argc, char** argv)
         {"RunSelectedModuleOnly", &TestRunSelectedModuleOnly},
         {"LlmScenarioMarksMissingAccelerator", &TestLlmScenarioMarksMissingAccelerator},
         {"NetworkModulesRunOnHost", &TestNetworkModulesRunOnHost},
+        {"AcceleratorModulesDegradeGracefully", &TestAcceleratorModulesDegradeGracefully},
         {"BadPluginGuardrails", [plugin_dir]() { return TestBadPluginGuardrails(plugin_dir); }},
+        {"PluginOverrideAcceleratorModule", [real_plugin_dir]() { return TestPluginOverrideAcceleratorModule(real_plugin_dir); }},
     };
 
     int failed = 0;

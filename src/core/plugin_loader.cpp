@@ -118,7 +118,10 @@ public:
         if (rc != 0)
         {
             result.status = "error";
-            result.message = "plugin returned non-zero status";
+            if ((plugin_result.message != nullptr) && (*plugin_result.message != '\0'))
+                result.message = plugin_result.message;
+            else
+                result.message = "plugin returned non-zero status";
             return result;
         }
 
@@ -128,6 +131,7 @@ public:
             result.message = "plugin returned non-finite score";
             return result;
         }
+
         if ((plugin_result.metric_count > 0) && (plugin_result.metrics == nullptr))
         {
             result.status = "error";
@@ -141,6 +145,16 @@ public:
             return result;
         }
 
+        // A plugin signals graceful degradation by returning a zero (or
+        // negative) finite score with a non-empty message. Structural metric
+        // guardrails above still apply to degraded results.
+        if ((plugin_result.score <= 0.0) && (plugin_result.message != nullptr) && (*plugin_result.message != '\0'))
+        {
+            result.status = "not_supported";
+            result.score = 0.0;
+            result.message = plugin_result.message;
+            return result;
+        }
         result.status = "ok";
         result.score = plugin_result.score;
         if (plugin_result.message != nullptr)
