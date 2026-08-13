@@ -26,6 +26,8 @@
 - `ispcok_plugin_cuda`：真实 CUDA FP32 compute 插件（检测到 CUDA toolkit 时构建）。
 - `ispcok_plugin_xpu`：真实 Level Zero FP32 compute 插件（检测到 Level Zero loader 时构建）。
 - `ispcok_plugin_hip`：真实 HIP FP32 compute 插件（检测到 HIP compiler/runtime 时构建）。
+- `ispcok_plugin_gpu_dx12`：Windows 真实 Direct3D 12 FP32 compute 插件。
+- `ispcok_plugin_npu`：Windows 真实 DXCore/DirectML FP16 compute 插件。
 - `pc_benchmark`：传统 CppBenchmark 可执行文件。
 
 ## 架构映射
@@ -68,13 +70,17 @@
 
 ## GPU / 加速器插件
 
-`gpu_vulkan`、`cuda`、`xpu`、`hip` 使用独立动态插件，`ispcok_core` 不链接 GPU SDK。插件存在时，同 id 插件覆盖内建降级模块；插件缺席时，模块返回 `not_supported` 和 `backend not compiled` 消息。
+`gpu_vulkan`、`cuda`、`xpu`、`hip`、`gpu_dx12`、`npu` 使用独立动态插件，`ispcok_core` 不链接加速器 SDK。插件存在时，同 id 插件覆盖内建降级模块；插件缺席时，模块返回 `not_supported` 和 `backend not compiled` 消息。
 
-四个插件执行同一组 1024 x 1024 FP32 矩阵乘法，并报告：
+Vulkan、CUDA、Level Zero、HIP 与 DX12 插件执行同一组 1024 x 1024 FP32 矩阵乘法，并报告：
 
 - `fp32_gflops`
 - `elapsed_ms`
 - `checksum`
+
+NPU 插件仅选择非图形 DXCore ML/Core Compute 适配器，执行 256 x 256 DirectML FP16 矩阵乘法，并报告 `fp16_gflops`、`elapsed_ms`、`checksum` 与 `matrix_size`。API 或硬件缺失时返回 `not_supported`，不会回退到 CPU 或图形适配器。
+
+DX12 插件默认只使用硬件适配器。`ISPCOK_DX12_ALLOW_WARP=1` 仅用于软件正确性诊断与 CI。
 
 CMake 开关：
 
@@ -83,6 +89,8 @@ CMake 开关：
 - `ISPCOK_ENABLE_CUDA_BACKEND`
 - `ISPCOK_ENABLE_XPU_BACKEND`
 - `ISPCOK_ENABLE_HIP_BACKEND`
+- `ISPCOK_ENABLE_DX12_BACKEND`
+- `ISPCOK_ENABLE_NPU_BACKEND`
 
 SDK 缺失会跳过对应插件目标，CMake 配置继续成功。
 

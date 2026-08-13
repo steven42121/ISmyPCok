@@ -1,6 +1,6 @@
 # ISmyPCok.WinUI
 
-WinUI3 desktop front-end for ISmyPCok, written in C++/WinRT.
+WinUI3 desktop front-end for ISmyPCok, written in C++/WinRT. Benchmark reports are rendered as a card dashboard with scenario score, bottlenecks, module status, metrics, and expandable raw JSON.
 
 It loads `ispcok_capi.dll` at runtime (via `LoadLibraryW`) and runs benchmarks
 on a background thread, pushing results back to the UI through a

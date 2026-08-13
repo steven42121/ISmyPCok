@@ -26,6 +26,8 @@ These two stacks intentionally coexist during migration. New modular features sh
 - `ispcok_plugin_cuda`: real CUDA FP32 compute plugin (built when the CUDA toolkit is detected).
 - `ispcok_plugin_xpu`: real Level Zero FP32 compute plugin (built when the Level Zero loader is detected).
 - `ispcok_plugin_hip`: real HIP FP32 compute plugin (built when the HIP compiler/runtime is detected).
+- `ispcok_plugin_gpu_dx12`: real Direct3D 12 FP32 compute plugin on Windows.
+- `ispcok_plugin_npu`: real DXCore/DirectML FP16 compute plugin on Windows.
 - `pc_benchmark`: legacy CppBenchmark executable.
 
 ## Architecture Map
@@ -68,13 +70,17 @@ Header: `include/ispcok/plugin_api.h`
 
 ## GPU / Accelerator Plugins
 
-`gpu_vulkan`, `cuda`, `xpu`, and `hip` are standalone dynamic plugins, so `ispcok_core` does not link GPU SDKs. A same-id plugin replaces the builtin degraded module; when the plugin is absent, the module returns `not_supported` with a `backend not compiled` message.
+`gpu_vulkan`, `cuda`, `xpu`, `hip`, `gpu_dx12`, and `npu` are standalone dynamic plugins, so `ispcok_core` does not link accelerator SDKs. A same-id plugin replaces the builtin degraded module; when the plugin is absent, the module returns `not_supported` with a `backend not compiled` message.
 
-All four plugins execute the same 1024 x 1024 FP32 matrix multiplication and report:
+The Vulkan, CUDA, Level Zero, HIP, and DX12 plugins execute the same 1024 x 1024 FP32 matrix multiplication and report:
 
 - `fp32_gflops`
 - `elapsed_ms`
 - `checksum`
+
+The NPU plugin selects a non-graphics DXCore ML/Core Compute adapter and executes a 256 x 256 DirectML FP16 matrix multiplication. It reports `fp16_gflops`, `elapsed_ms`, `checksum`, and `matrix_size`. API or hardware absence returns `not_supported`; the plugin never falls back to CPU or a graphics adapter.
+
+The DX12 plugin uses hardware adapters by default. Set `ISPCOK_DX12_ALLOW_WARP=1` only for software correctness diagnostics and CI.
 
 CMake switches:
 
@@ -83,6 +89,8 @@ CMake switches:
 - `ISPCOK_ENABLE_CUDA_BACKEND`
 - `ISPCOK_ENABLE_XPU_BACKEND`
 - `ISPCOK_ENABLE_HIP_BACKEND`
+- `ISPCOK_ENABLE_DX12_BACKEND`
+- `ISPCOK_ENABLE_NPU_BACKEND`
 
 Missing SDKs skip only the corresponding plugin target and leave CMake configuration successful.
 

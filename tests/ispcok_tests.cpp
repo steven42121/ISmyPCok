@@ -1,5 +1,7 @@
 #include "core/engine.h"
+#include "../plugins/common/npu_matmul_workload.h"
 
+#include <cmath>
 #include <filesystem>
 #include <functional>
 #include <iostream>
@@ -40,6 +42,34 @@ bool TestJsonEscapesControlChars()
            Expect(json.find("\\t") != std::string::npos, "JSON should escape tab") &&
            Expect(json.find("\\u0001") != std::string::npos, "JSON should escape control chars with \\u00XX") &&
            Expect(json.find("\\\"quoted\\\"") != std::string::npos, "JSON should escape quotes");
+}
+
+bool TestNpuHalfConversion()
+{
+    using ispcok::plugins::FloatToHalf;
+    using ispcok::plugins::HalfToFloat;
+
+    bool ok = true;
+    const std::vector<float> exact_values = {
+        0.0f, -0.0f, 1.0f, -2.0f, 0.5f, 0.25f, 65504.0f,
+        1.0f / 256.0f, 17.0f / 256.0f};
+    for (float value : exact_values)
+    {
+        const float round_trip = HalfToFloat(FloatToHalf(value));
+        ok = ok && Expect(round_trip == value, "binary16 exact value should round-trip");
+    }
+    ok = ok && Expect(std::isinf(HalfToFloat(FloatToHalf(INFINITY))), "positive infinity should round-trip");
+    ok = ok && Expect(std::isinf(HalfToFloat(FloatToHalf(-INFINITY))), "negative infinity should round-trip");
+    ok = ok && Expect(std::isnan(HalfToFloat(FloatToHalf(NAN))), "NaN should remain NaN");
+
+    std::vector<float> a;
+    std::vector<float> b;
+    ispcok::plugins::FillNpuMatrices(a, b);
+    for (float value : a)
+        ok = ok && Expect(HalfToFloat(FloatToHalf(value)) == value, "NPU input A should be exactly representable as binary16");
+    for (float value : b)
+        ok = ok && Expect(HalfToFloat(FloatToHalf(value)) == value, "NPU input B should be exactly representable as binary16");
+    return ok;
 }
 
 bool TestScenarioRegistry()
@@ -167,10 +197,10 @@ bool TestBadPluginGuardrails(const std::string& plugin_dir)
 
 bool TestAcceleratorModulesDegradeGracefully()
 {
-    // Without any GPU SDK or plugin, the four accelerator modules must degrade
+    // Without any accelerator SDK or plugin, the modules must degrade
     // to "not_supported" with an explanatory message instead of failing the
     // run, crashing, or reporting a fabricated score.
-    const std::vector<std::string> accelerator_ids = {"gpu_vulkan", "cuda", "hip", "xpu"};
+    const std::vector<std::string> accelerator_ids = {"gpu_vulkan", "cuda", "hip", "xpu", "gpu_dx12", "npu"};
     ispcok::RunOptions options;
     options.modules = accelerator_ids;
     const ispcok::RunReport report = ispcok::Run(options);
@@ -237,6 +267,7 @@ int main(int argc, char** argv)
 
     const std::vector<std::pair<std::string, std::function<bool()>>> tests = {
         {"JsonEscapesControlChars", &TestJsonEscapesControlChars},
+        {"NpuHalfConversion", &TestNpuHalfConversion},
         {"ScenarioRegistry", &TestScenarioRegistry},
         {"RunSelectedModuleOnly", &TestRunSelectedModuleOnly},
         {"LlmScenarioMarksMissingAccelerator", &TestLlmScenarioMarksMissingAccelerator},
