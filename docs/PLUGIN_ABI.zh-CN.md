@@ -22,11 +22,21 @@
   - `metrics` 数组指针
   - `metric_count`
 
+### 状态映射
+
+ABI v1 没有独立的 `status` 字段。Host 使用以下映射：
+
+- 返回值为非零：`error`。插件填充了非空 `message` 时，Host 使用插件消息；否则使用通用错误消息。
+- 返回值为 `0`、`score` 为有限的零或负数且 `message` 非空：`not_supported`。GPU 插件使用该约定报告 SDK、驱动或设备缺失。
+- 返回值为 `0` 且 `score` 为正数：`ok`。
+
+`not_supported` 结果仍需满足指标结构校验；推荐返回空指标数组和 `metric_count = 0`。
+
 ## 所有权与生命周期
 
 - `id` 与 `category` 视为插件持有，需在模块加载生命周期内有效。
-- `message` 与 `metrics` 至少在 `run()` 返回前保持有效。
-- Host 在 `run()` 内立即拷贝结果数据。
+- `message` 与 `metrics` 至少保持有效到同一线程下一次调用该模块的 `run()`，或模块卸载。
+- Host 在 `run()` 返回后立即拷贝结果数据。
 
 ## 插件实现防御建议
 

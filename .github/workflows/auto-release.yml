@@ -108,7 +108,11 @@ jobs:
           if (-not $msbuild) { throw "MSBuild not found" }
           & $msbuild apps\ISmyPCok.WinUI\ISmyPCok.WinUI.vcxproj /p:Configuration=Release /p:Platform=x64 /restore
           if ($LASTEXITCODE -ne 0) { throw "MSBuild failed with exit code $LASTEXITCODE" }
-          Copy-Item build\Release\ispcok_capi.dll apps\ISmyPCok.WinUI\x64\Release\ -Force
+          $executables = @(Get-ChildItem apps\ISmyPCok.WinUI\x64\Release -Filter ISmyPCokWinUI.exe -Recurse)
+          if ($executables.Count -ne 1) { throw "Expected exactly one WinUI executable, found $($executables.Count)" }
+          $exe = $executables[0]
+          Copy-Item build\Release\ispcok_capi.dll $exe.Directory.FullName -Force
+          Write-Output "WINUI_APP_DIR=$($exe.Directory.FullName)" >> $env:GITHUB_ENV
 
       - name: Dump WinUI generated files (diagnostics)
         if: always()
@@ -214,14 +218,91 @@ jobs:
         run: |
           $tag = "${{ steps.version.outputs.version }}"
           $zipName = "ISmyPCok-$tag-windows-x64-winui.zip"
-          $outDir = "apps\ISmyPCok.WinUI\x64\Release"
+          $appDir = $env:WINUI_APP_DIR
+          if (-not $appDir -or -not (Test-Path (Join-Path $appDir "ISmyPCokWinUI.exe"))) {
+            throw "WinUI application directory is invalid: $appDir"
+          }
           $runtimeFiles = @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")
           foreach ($dll in $runtimeFiles) {
-            Copy-Item build\Release\$dll $outDir -Force
-            Copy-Item build\Release\$dll (Join-Path $outDir "ISmyPCok.WinUI") -Force -ErrorAction SilentlyContinue
+            Copy-Item build\Release\$dll $appDir -Force
           }
-          Compress-Archive -Path (Get-ChildItem $outDir | Select-Object -ExpandProperty FullName) -DestinationPath $zipName -Force
+          $requiredFiles = @(
+            "ISmyPCokWinUI.exe",
+            "ispcok_capi.dll",
+            "resources.pri",
+            "App.xbf",
+            "MainWindow.xbf",
+            "Microsoft.ui.xaml.dll",
+            "Microsoft.UI.Xaml.Controls.dll",
+            "Microsoft.UI.Xaml.Controls.pri",
+            "Microsoft.WindowsAppRuntime.dll",
+            "Microsoft.WindowsAppRuntime.Bootstrap.dll",
+            "msvcp140.dll",
+            "vcruntime140.dll",
+            "vcruntime140_1.dll"
+          )
+          foreach ($file in $requiredFiles) {
+            if (-not (Test-Path (Join-Path $appDir $file))) {
+              throw "Missing WinUI deployment file: $file in $appDir"
+            }
+          }
+          Compress-Archive -Path (Get-ChildItem $appDir | Select-Object -ExpandProperty FullName) -DestinationPath $zipName -Force
           Write-Output "PACKAGE_WINUI=$zipName" >> $env:GITHUB_ENV
+
+      - name: Smoke test packaged WinUI (startup + window activation)
+        if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.version }}"
+          $staging = Join-Path $env:RUNNER_TEMP "ispcok-winui-smoke-$tag-$([guid]::NewGuid().ToString('N'))"
+          New-Item -ItemType Directory -Path $staging -Force | Out-Null
+          Expand-Archive -Path "ISmyPCok-$tag-windows-x64-winui.zip" -DestinationPath $staging -Force
+
+          $exe = Join-Path $staging "ISmyPCokWinUI.exe"
+          if (-not (Test-Path $exe)) { throw "Packaged WinUI executable not found at ZIP root" }
+
+          $readyFile = Join-Path $staging "winui-smoke-ready.txt"
+          $startupLog = Join-Path $staging "ISmyPCokWinUI-startup.log"
+          $env:ISPCOK_WINUI_SMOKE_READY_FILE = $readyFile
+          $process = Start-Process -FilePath $exe -WorkingDirectory $staging -PassThru
+
+          try {
+            $deadline = (Get-Date).AddSeconds(30)
+            do {
+              Start-Sleep -Milliseconds 250
+              $process.Refresh()
+              if ($process.HasExited) {
+                $details = if (Test-Path $startupLog) { Get-Content $startupLog -Raw } else { "no startup log" }
+                throw "WinUI exited during startup with code $($process.ExitCode): $details"
+              }
+            } while (((-not (Test-Path $readyFile)) -or ($process.MainWindowHandle -eq 0)) -and (Get-Date) -lt $deadline)
+
+            if (-not (Test-Path $readyFile)) {
+              $details = if (Test-Path $startupLog) { Get-Content $startupLog -Raw } else { "no startup log" }
+              throw "WinUI did not activate its main window within 30 seconds: $details"
+            }
+            if ($process.MainWindowHandle -eq 0) {
+              throw "WinUI ready marker exists but no top-level window handle was created"
+            }
+
+            $stableUntil = (Get-Date).AddSeconds(3)
+            do {
+              Start-Sleep -Milliseconds 250
+              $process.Refresh()
+              if ($process.HasExited) {
+                $details = if (Test-Path $startupLog) { Get-Content $startupLog -Raw } else { "no startup log" }
+                throw "WinUI exited during the startup stability window with code $($process.ExitCode): $details"
+              }
+            } while ((Get-Date) -lt $stableUntil)
+            if ($process.MainWindowHandle -eq 0) {
+              throw "WinUI top-level window disappeared during the startup stability window"
+            }
+            Write-Output "WINUI SMOKE TEST OK"
+          }
+          finally {
+            Remove-Item Env:\ISPCOK_WINUI_SMOKE_READY_FILE -ErrorAction SilentlyContinue
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
 
       - name: Create GitHub Release
         if: github.event_name == 'push' && steps.check.outputs.exists != 'true'

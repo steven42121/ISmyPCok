@@ -160,6 +160,14 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/samples/plugins/bad_plugin_nan_score.cpp"
     )
 endif()
 
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/plugins/CMakeLists.txt")
+    add_subdirectory(plugins)
+endif()
+
+if(TARGET ispcok_plugin_gpu_vulkan)
+    add_dependencies(ispcok_tests ispcok_plugin_gpu_vulkan)
+endif()
+
 if(TARGET ispcok_plugin_bad_null_metrics)
     add_dependencies(ispcok_tests ispcok_plugin_bad_null_metrics)
 endif()
@@ -183,4 +191,10 @@ else()
 endif()
 
 enable_testing()
-add_test(NAME ispcok_tests COMMAND ispcok_tests "$<TARGET_FILE_DIR:ispcok_tests>")
+if(TARGET ispcok_plugin_gpu_vulkan)
+    add_test(NAME ispcok_tests COMMAND ispcok_tests
+        "$<TARGET_FILE_DIR:ispcok_tests>"
+        "$<TARGET_FILE_DIR:ispcok_plugin_gpu_vulkan>")
+else()
+    add_test(NAME ispcok_tests COMMAND ispcok_tests "$<TARGET_FILE_DIR:ispcok_tests>")
+endif()

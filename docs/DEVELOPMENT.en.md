@@ -22,6 +22,10 @@ These two stacks intentionally coexist during migration. New modular features sh
 - `ispcok_cli`: CLI entrypoint.
 - `ispcok_capi`: C ABI DLL.
 - `ispcok_plugin_sample_gpu`: sample plugin module.
+- `ispcok_plugin_gpu_vulkan`: real Vulkan FP32 compute plugin (built when the Vulkan SDK is detected).
+- `ispcok_plugin_cuda`: real CUDA FP32 compute plugin (built when the CUDA toolkit is detected).
+- `ispcok_plugin_xpu`: real Level Zero FP32 compute plugin (built when the Level Zero loader is detected).
+- `ispcok_plugin_hip`: real HIP FP32 compute plugin (built when the HIP compiler/runtime is detected).
 - `pc_benchmark`: legacy CppBenchmark executable.
 
 ## Architecture Map
@@ -47,9 +51,10 @@ Header: `include/ispcok/plugin_api.h`
 ### Ownership/lifetime requirements for plugin authors
 
 - `id` / `category` must remain valid for the full loaded lifetime of the plugin module.
-- `message` and `metrics` pointers must remain valid until `run()` returns.
+- `message` and `metrics` pointers must remain valid until the next `run()` call for the module on the same thread, or until module unload.
 - `metric_count` must match the accessible `metrics` array length.
 - Plugin must not return host-owned pointers for later asynchronous use.
+- Shared device contexts must be serialized; thread-local result storage prevents concurrent `message/metrics` overwrite.
 
 ### Safety hardening status
 
@@ -60,6 +65,42 @@ Header: `include/ispcok/plugin_api.h`
 - Planned:
   - explicit ABI v2 contract with stronger ownership model
   - more robust crash/isolation strategy for malformed plugins
+
+## GPU / Accelerator Plugins
+
+`gpu_vulkan`, `cuda`, `xpu`, and `hip` are standalone dynamic plugins, so `ispcok_core` does not link GPU SDKs. A same-id plugin replaces the builtin degraded module; when the plugin is absent, the module returns `not_supported` with a `backend not compiled` message.
+
+All four plugins execute the same 1024 x 1024 FP32 matrix multiplication and report:
+
+- `fp32_gflops`
+- `elapsed_ms`
+- `checksum`
+
+CMake switches:
+
+- `ISPCOK_ENABLE_GPU_BACKENDS`
+- `ISPCOK_ENABLE_VULKAN_BACKEND`
+- `ISPCOK_ENABLE_CUDA_BACKEND`
+- `ISPCOK_ENABLE_XPU_BACKEND`
+- `ISPCOK_ENABLE_HIP_BACKEND`
+
+Missing SDKs skip only the corresponding plugin target and leave CMake configuration successful.
+
+Run the Vulkan plugin:
+
+```bash
+cmake -S . -B build -DISPCOK_ENABLE_VULKAN_BACKEND=ON
+cmake --build build --target ispcok_cli ispcok_plugin_gpu_vulkan --parallel 2
+./build/ispcok_cli run --plugin-dir ./build/plugins --modules gpu_vulkan
+```
+
+On Linux without a physical GPU, verify the real Vulkan compute path with Mesa lavapipe:
+
+```bash
+bash scripts/test_vulkan_plugin_lavapipe.sh
+```
+
+Debian / Ubuntu systems require `libvulkan-dev` and `mesa-vulkan-drivers`.
 
 ## Scenario Rules
 

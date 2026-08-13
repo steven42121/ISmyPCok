@@ -1,0 +1,25 @@
+#version 450
+
+// Generic FP32 matrix multiplication compute shader shared by the Vulkan
+// and xpu (Level Zero) backends. C = A * B for N x N matrices with N = 1024.
+// Workgroup = 16 x 16; each invocation computes one output element.
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer A_Buffer { float a[]; };
+layout(set = 0, binding = 1, std430) readonly buffer B_Buffer { float b[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer C_Buffer { float c[]; };
+
+void main()
+{
+    const uint n = 1024u;
+    const uint col = gl_GlobalInvocationID.x;
+    const uint row = gl_GlobalInvocationID.y;
+    if (col >= n || row >= n)
+        return;
+
+    float acc = 0.0f;
+    for (uint k = 0u; k < n; ++k)
+        acc += a[row * n + k] * b[k * n + col];
+    c[row * n + col] = acc;
+}

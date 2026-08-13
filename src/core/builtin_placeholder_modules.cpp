@@ -10,9 +10,10 @@ namespace {
 class PlaceholderModule final : public IModule
 {
 public:
-    PlaceholderModule(std::string module_id, std::string module_category, std::string module_message)
+    PlaceholderModule(std::string module_id, std::string module_category, std::string module_status, std::string module_message)
         : id_(std::move(module_id)),
           category_(std::move(module_category)),
+          status_(std::move(module_status)),
           message_(std::move(module_message))
     {}
 
@@ -24,7 +25,7 @@ public:
         ModuleResult result;
         result.id = id_;
         result.category = category_;
-        result.status = "not_implemented";
+        result.status = status_;
         result.score = 0.0;
         result.message = message_;
         return result;
@@ -33,6 +34,7 @@ public:
 private:
     std::string id_;
     std::string category_;
+    std::string status_;
     std::string message_;
 };
 
@@ -41,12 +43,16 @@ private:
 std::vector<ModulePtr> CreateBuiltinPlaceholderModules()
 {
     std::vector<ModulePtr> modules;
-    modules.emplace_back(std::make_shared<PlaceholderModule>("gpu_vulkan", "gpu", "Planned: Vulkan graphics/compute benchmark"));
-    modules.emplace_back(std::make_shared<PlaceholderModule>("gpu_dx12", "gpu", "Planned: DX12 graphics benchmark"));
-    modules.emplace_back(std::make_shared<PlaceholderModule>("cuda", "gpu", "Planned: CUDA compute benchmark"));
-    modules.emplace_back(std::make_shared<PlaceholderModule>("hip", "gpu", "Planned: HIP compute benchmark"));
-    modules.emplace_back(std::make_shared<PlaceholderModule>("xpu", "gpu", "Planned: oneAPI/Level Zero benchmark"));
-    modules.emplace_back(std::make_shared<PlaceholderModule>("npu", "npu", "Planned: NPU inference benchmark"));
+    // Real accelerator backends ship as optional dynamic plugins. When a plugin
+    // is not built (its SDK was absent at configure time), the placeholder
+    // reports "not_supported" with a "backend not compiled" message so the run
+    // degrades gracefully instead of marking the module as unimplemented.
+    modules.emplace_back(std::make_shared<PlaceholderModule>("gpu_vulkan", "gpu", "not_supported", "gpu_vulkan: backend not compiled (Vulkan SDK required)"));
+    modules.emplace_back(std::make_shared<PlaceholderModule>("cuda", "gpu", "not_supported", "cuda: backend not compiled (CUDA toolkit required)"));
+    modules.emplace_back(std::make_shared<PlaceholderModule>("hip", "gpu", "not_supported", "hip: backend not compiled (HIP runtime required)"));
+    modules.emplace_back(std::make_shared<PlaceholderModule>("xpu", "gpu", "not_supported", "xpu: backend not compiled (Level Zero loader required)"));
+    modules.emplace_back(std::make_shared<PlaceholderModule>("gpu_dx12", "gpu", "not_implemented", "Planned: DX12 graphics benchmark"));
+    modules.emplace_back(std::make_shared<PlaceholderModule>("npu", "npu", "not_implemented", "Planned: NPU inference benchmark"));
     return modules;
 }
 

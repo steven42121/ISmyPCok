@@ -22,6 +22,10 @@
 - `ispcok_cli`：CLI 入口。
 - `ispcok_capi`：C ABI 动态库。
 - `ispcok_plugin_sample_gpu`：插件示例。
+- `ispcok_plugin_gpu_vulkan`：真实 Vulkan FP32 compute 插件（检测到 Vulkan SDK 时构建）。
+- `ispcok_plugin_cuda`：真实 CUDA FP32 compute 插件（检测到 CUDA toolkit 时构建）。
+- `ispcok_plugin_xpu`：真实 Level Zero FP32 compute 插件（检测到 Level Zero loader 时构建）。
+- `ispcok_plugin_hip`：真实 HIP FP32 compute 插件（检测到 HIP compiler/runtime 时构建）。
 - `pc_benchmark`：传统 CppBenchmark 可执行文件。
 
 ## 架构映射
@@ -47,9 +51,10 @@
 ### 插件作者生命周期要求
 
 - `id` / `category` 在插件加载期内必须有效。
-- `message` 与 `metrics` 至少在 `run()` 返回前保持有效。
+- `message` 与 `metrics` 至少保持有效到同一线程下一次调用该模块的 `run()`，或模块卸载。
 - `metric_count` 必须与可访问数组长度一致。
 - 不要返回未来异步阶段才会访问的裸指针。
+- 共享设备上下文需自行串行化；每线程结果存储可避免并发覆盖 `message/metrics`。
 
 ### 安全加固现状
 
@@ -60,6 +65,42 @@
 - 规划中：
   - 更强所有权模型的 ABI v2
   - 更完善的异常隔离策略
+
+## GPU / 加速器插件
+
+`gpu_vulkan`、`cuda`、`xpu`、`hip` 使用独立动态插件，`ispcok_core` 不链接 GPU SDK。插件存在时，同 id 插件覆盖内建降级模块；插件缺席时，模块返回 `not_supported` 和 `backend not compiled` 消息。
+
+四个插件执行同一组 1024 x 1024 FP32 矩阵乘法，并报告：
+
+- `fp32_gflops`
+- `elapsed_ms`
+- `checksum`
+
+CMake 开关：
+
+- `ISPCOK_ENABLE_GPU_BACKENDS`
+- `ISPCOK_ENABLE_VULKAN_BACKEND`
+- `ISPCOK_ENABLE_CUDA_BACKEND`
+- `ISPCOK_ENABLE_XPU_BACKEND`
+- `ISPCOK_ENABLE_HIP_BACKEND`
+
+SDK 缺失会跳过对应插件目标，CMake 配置继续成功。
+
+运行 Vulkan 插件：
+
+```bash
+cmake -S . -B build -DISPCOK_ENABLE_VULKAN_BACKEND=ON
+cmake --build build --target ispcok_cli ispcok_plugin_gpu_vulkan --parallel 2
+./build/ispcok_cli run --plugin-dir ./build/plugins --modules gpu_vulkan
+```
+
+Linux 无物理 GPU 环境可使用 Mesa lavapipe 验证真实 Vulkan compute 路径：
+
+```bash
+bash scripts/test_vulkan_plugin_lavapipe.sh
+```
+
+Debian / Ubuntu 环境需要 `libvulkan-dev` 与 `mesa-vulkan-drivers`。
 
 ## 场景规则
 
