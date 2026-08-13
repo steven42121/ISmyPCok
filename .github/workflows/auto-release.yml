@@ -15,6 +15,9 @@ on:
       - 'include/**'
       - 'samples/**'
       - 'plugins/**'
+      - 'tests/**'
+      - 'docs/**'
+      - 'plugins/**'
 
 permissions:
   contents: write
