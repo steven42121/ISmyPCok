@@ -240,7 +240,7 @@ jobs:
           Get-Content "$proj\ISmyPCok.WinUI\x64\Release\ISmyPCok.WinUI.vcxproj.mdmerge.rsp" -ErrorAction SilentlyContinue
 
       - name: Package CLI artifact
-        if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        if: github.event_name == 'pull_request' || steps.check.outputs.exists != 'true'
         shell: pwsh
         run: |
           $tag = "${{ steps.version.outputs.version }}"
@@ -261,7 +261,7 @@ jobs:
           Write-Output "PACKAGE_CLI=$zipName" >> $env:GITHUB_ENV
 
       - name: Smoke test packaged CLI (list + benchmark run)
-        if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        if: github.event_name == 'pull_request' || steps.check.outputs.exists != 'true'
         shell: pwsh
         run: |
           $tag = "${{ steps.version.outputs.version }}"
@@ -300,7 +300,7 @@ jobs:
           Write-Output "SMOKE TEST OK"
 
       - name: Package WinUI artifact
-        if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        if: github.event_name == 'pull_request' || steps.check.outputs.exists != 'true'
         shell: pwsh
         run: |
           $tag = "${{ steps.version.outputs.version }}"
@@ -342,7 +342,7 @@ jobs:
           Write-Output "PACKAGE_WINUI=$zipName" >> $env:GITHUB_ENV
 
       - name: Smoke test packaged WinUI (startup + window activation)
-        if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        if: github.event_name == 'pull_request' || steps.check.outputs.exists != 'true'
         continue-on-error: true
         shell: pwsh
         run: |
