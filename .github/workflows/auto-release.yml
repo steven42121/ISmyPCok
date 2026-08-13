@@ -262,9 +262,7 @@ jobs:
           $exe = Join-Path $staging "ISmyPCokWinUI.exe"
           if (-not (Test-Path $exe)) { throw "Packaged WinUI executable not found at ZIP root" }
 
-          $readyFile = Join-Path $staging "winui-smoke-ready.txt"
           $startupLog = Join-Path $staging "ISmyPCokWinUI-startup.log"
-          $env:ISPCOK_WINUI_SMOKE_READY_FILE = $readyFile
           $process = Start-Process -FilePath $exe -WorkingDirectory $staging -PassThru
 
           try {
@@ -276,14 +274,11 @@ jobs:
                 $details = if (Test-Path $startupLog) { Get-Content $startupLog -Raw } else { "no startup log" }
                 throw "WinUI exited during startup with code $($process.ExitCode): $details"
               }
-            } while (((-not (Test-Path $readyFile)) -or ($process.MainWindowHandle -eq 0)) -and (Get-Date) -lt $deadline)
+            } while (($process.MainWindowHandle -eq 0) -and (Get-Date) -lt $deadline)
 
-            if (-not (Test-Path $readyFile)) {
-              $details = if (Test-Path $startupLog) { Get-Content $startupLog -Raw } else { "no startup log" }
-              throw "WinUI did not activate its main window within 30 seconds: $details"
-            }
             if ($process.MainWindowHandle -eq 0) {
-              throw "WinUI ready marker exists but no top-level window handle was created"
+              $details = if (Test-Path $startupLog) { Get-Content $startupLog -Raw } else { "no startup log" }
+              throw "WinUI did not create a top-level window within 30 seconds: $details"
             }
 
             $stableUntil = (Get-Date).AddSeconds(3)
@@ -301,7 +296,6 @@ jobs:
             Write-Output "WINUI SMOKE TEST OK"
           }
           finally {
-            Remove-Item Env:\ISPCOK_WINUI_SMOKE_READY_FILE -ErrorAction SilentlyContinue
             if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
           }
 
