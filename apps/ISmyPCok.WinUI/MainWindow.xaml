@@ -103,8 +103,8 @@
                              IsReadOnly="True"
                              AcceptsReturn="True"
                              TextWrapping="NoWrap"
-                             HorizontalScrollBarVisibility="Auto"
-                             VerticalScrollBarVisibility="Auto"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
                              FontFamily="Consolas"/>
                 </Expander>
             </StackPanel>
