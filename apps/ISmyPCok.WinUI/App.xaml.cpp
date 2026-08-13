@@ -67,7 +67,7 @@ namespace winrt::ISmyPCokWinUI::implementation
         {
             ReportStartupFailure(std::wstring(L"Unhandled XAML exception:\r\n") + args.Message().c_str());
         });
-        InitializeComponent();
+        Resources().MergedDictionaries().Append(Microsoft::UI::Xaml::Controls::XamlControlsResources());
     }
 
     void App::OnLaunched(LaunchActivatedEventArgs const&)
