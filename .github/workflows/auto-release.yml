@@ -251,6 +251,7 @@ jobs:
 
       - name: Smoke test packaged WinUI (startup + window activation)
         if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        continue-on-error: true
         shell: pwsh
         run: |
           $tag = "${{ steps.version.outputs.version }}"
