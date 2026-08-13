@@ -122,6 +122,7 @@
     <ApplicationDefinition Include="App.xaml" />
     <Page Include="MainWindow.xaml" />
     <Manifest Include="app.manifest" />
+    <ResourceCompile Include="ISmyPCok.WinUI.rc" />
   </ItemGroup>
 
   <ItemGroup>

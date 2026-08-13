@@ -114,6 +114,51 @@ jobs:
           Copy-Item build\Release\ispcok_capi.dll $exe.Directory.FullName -Force
           Write-Output "WINUI_APP_DIR=$($exe.Directory.FullName)" >> $env:GITHUB_ENV
 
+      - name: Check Authenticode signing configuration
+        id: signing
+        shell: pwsh
+        env:
+          SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+          SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          $enabled = (-not [string]::IsNullOrWhiteSpace($env:SIGNING_CERTIFICATE_BASE64)) -and
+            (-not [string]::IsNullOrWhiteSpace($env:SIGNING_CERTIFICATE_PASSWORD))
+          Write-Output "enabled=$($enabled.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+      - name: Authenticode sign Windows binaries
+        if: github.event_name == 'push' && steps.check.outputs.exists != 'true' && steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        env:
+          SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+          SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          $certificatePath = Join-Path $env:RUNNER_TEMP "ispcok-signing.pfx"
+          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:SIGNING_CERTIFICATE_BASE64))
+
+          $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
+            Where-Object { $_.FullName -match '\\x64\\signtool\.exe$' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $signTool) { throw "signtool.exe not found" }
+
+          $files = @(
+            "build\Release\ispcok_cli.exe",
+            "build\Release\pc_benchmark.exe",
+            "build\Release\ispcok_capi.dll",
+            "build\Release\ispcok_plugin_gpu_vulkan_sample.dll",
+            (Join-Path $env:WINUI_APP_DIR "ISmyPCokWinUI.exe"),
+            (Join-Path $env:WINUI_APP_DIR "ispcok_capi.dll")
+          )
+          $files += Get-ChildItem "build\Release" -Filter "ispcok_plugin_*.dll" | Select-Object -ExpandProperty FullName
+          $files = $files | Where-Object { Test-Path $_ } | Sort-Object -Unique
+
+          foreach ($file in $files) {
+            & $signTool.FullName sign /fd SHA256 /td SHA256 /tr "http://timestamp.digicert.com" /f $certificatePath /p $env:SIGNING_CERTIFICATE_PASSWORD $file
+            if ($LASTEXITCODE -ne 0) { throw "Authenticode signing failed for $file" }
+            & $signTool.FullName verify /pa /v $file
+            if ($LASTEXITCODE -ne 0) { throw "Authenticode verification failed for $file" }
+          }
+
       - name: Dump WinUI generated files (diagnostics)
         if: always()
         shell: pwsh
