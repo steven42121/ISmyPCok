@@ -7,9 +7,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Padding="24" RowSpacing="12">
+    <Grid Padding="24" RowSpacing="16" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -42,20 +41,73 @@
                     IsEnabled="False"/>
             <ProgressRing x:Name="BusyRing"
                           IsActive="False"
-                          Width="24"
-                          Height="24"
-                          VerticalAlignment="Center"/>
+                           Width="24"
+                           Height="24"
+                           VerticalAlignment="Center"/>
+            <StackPanel VerticalAlignment="Center" Spacing="2">
+                <TextBlock x:Name="StatusText" Text="Ready" FontWeight="SemiBold"/>
+                <TextBlock x:Name="StatusDetailText"
+                           Text="Choose a scenario and run the benchmark."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
         </StackPanel>
 
-        <TextBlock Grid.Row="3"
-                   Text="Result"
-                   Style="{StaticResource SubtitleTextBlockStyle}"/>
+        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="16" Padding="0,0,12,12">
+                <Border x:Name="ScenarioCard"
+                        Padding="20"
+                        CornerRadius="8"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Scenario summary" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                        <Grid ColumnSpacing="24">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock x:Name="ScenarioNameText" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="BottlenecksText" TextWrapping="Wrap" Opacity="0.75"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                <TextBlock Text="TOTAL SCORE" Style="{StaticResource CaptionTextBlockStyle}"/>
+                                <TextBlock x:Name="ScenarioScoreText" FontSize="32" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
-        <TextBox x:Name="ResultBox"
-                 Grid.Row="4"
-                 IsReadOnly="True"
-                 AcceptsReturn="True"
-                 TextWrapping="Wrap"
-                 FontFamily="Consolas"/>
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Module results" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                    <TextBlock x:Name="EmptyModulesText"
+                               Text="No module results are available."
+                               Opacity="0.7"
+                               Visibility="Collapsed"/>
+                    <ItemsControl x:Name="ModuleCards">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ItemsWrapGrid Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </StackPanel>
+
+                <Expander x:Name="RawJsonExpander" Header="Raw JSON" IsExpanded="False">
+                    <TextBox x:Name="RawJsonBox"
+                             MinHeight="180"
+                             MaxHeight="420"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="NoWrap"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             FontFamily="Consolas"/>
+                </Expander>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Window>

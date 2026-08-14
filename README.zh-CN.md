@@ -33,7 +33,9 @@
 - `xpu`
 <!-- MODULE_LIST_END -->
 
-- 注：其中部分模块可能返回 `not_implemented` 或 `not_supported`（如 `cpu_avx*` 取决于构建选项和硬件支持）。
+- 注：加速器模块会根据构建选项、Windows API、驱动和硬件情况返回 `not_supported`。
+
+Windows 构建提供真实 `gpu_dx12` 与 `npu` 插件。`gpu_dx12` 执行 Direct3D 12 FP32 compute；`npu` 仅在非图形 DXCore ML/Core Compute 适配器上执行 DirectML FP16 workload。WinUI 应用以卡片仪表盘展示场景和模块结果，并保留可展开的原始 JSON 诊断区。
 
 ## 场景评分（初版）
 

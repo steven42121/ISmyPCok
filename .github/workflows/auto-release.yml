@@ -14,6 +14,10 @@ on:
       - 'src/**'
       - 'include/**'
       - 'samples/**'
+      - 'plugins/**'
+      - 'tests/**'
+      - 'docs/**'
+      - 'plugins/**'
 
 permissions:
   contents: write
@@ -59,10 +63,41 @@ jobs:
       - name: Build core (CLI / CAPI / plugins / pc_benchmark)
         shell: pwsh
         run: |
-          cmake --build build --config Release --target ispcok_cli
-          cmake --build build --config Release --target ispcok_capi
-          cmake --build build --config Release --target ispcok_plugin_sample_gpu
-          cmake --build build --config Release --target pc_benchmark
+          $targets = @(
+            "ispcok_cli",
+            "ispcok_capi",
+            "ispcok_plugin_sample_gpu",
+            "ispcok_plugin_gpu_dx12",
+            "ispcok_plugin_npu",
+            "pc_benchmark"
+          )
+          foreach ($target in $targets) {
+            cmake --build build --config Release --target $target
+            if ($LASTEXITCODE -ne 0) { throw "Build failed for target $target with exit code $LASTEXITCODE" }
+          }
+
+          $pluginDir = "build\plugins\Release"
+          foreach ($plugin in @("ispcok_plugin_gpu_dx12.dll", "ispcok_plugin_npu.dll")) {
+            $source = Join-Path $pluginDir $plugin
+            if (-not (Test-Path $source)) { throw "Plugin output not found: $source" }
+            Copy-Item $source build\Release\ -Force
+          }
+
+      - name: Validate Windows accelerator plugins
+        shell: pwsh
+        run: |
+          $env:ISPCOK_DX12_ALLOW_WARP = "1"
+          $dx12 = & build\Release\ispcok_cli.exe run --modules gpu_dx12 --plugin-dir build\Release | ConvertFrom-Json
+          $dx12Module = $dx12.modules | Where-Object id -eq "gpu_dx12"
+          if ($dx12Module.status -ne "ok" -or $dx12Module.score -le 0) { throw "DX12 WARP validation failed: $($dx12 | ConvertTo-Json -Depth 8)" }
+          if ($dx12Module.metrics.fp32_gflops -le 0 -or $dx12Module.metrics.checksum -eq 0) { throw "DX12 WARP metrics are invalid" }
+
+          $npu = & build\Release\ispcok_cli.exe run --modules npu --plugin-dir build\Release | ConvertFrom-Json
+          $npuModule = $npu.modules | Where-Object id -eq "npu"
+          if (-not $npuModule.plugin) { throw "NPU plugin was not loaded" }
+          if ($npuModule.status -notin @("ok", "not_supported")) { throw "NPU plugin returned unexpected status: $($npuModule.status)" }
+          if ($npuModule.status -eq "ok" -and ($npuModule.score -le 0 -or $npuModule.metrics.fp16_gflops -le 0 -or $npuModule.metrics.checksum -eq 0)) { throw "NPU FP16 metrics are invalid" }
+          if ($npuModule.status -eq "not_supported" -and [string]::IsNullOrWhiteSpace($npuModule.message)) { throw "NPU degradation message is empty" }
 
       - name: Copy VC runtime DLLs into release outputs
         shell: pwsh
@@ -146,6 +181,8 @@ jobs:
             "build\Release\pc_benchmark.exe",
             "build\Release\ispcok_capi.dll",
             "build\Release\ispcok_plugin_gpu_vulkan_sample.dll",
+            "build\Release\ispcok_plugin_gpu_dx12.dll",
+            "build\Release\ispcok_plugin_npu.dll",
             (Join-Path $env:WINUI_APP_DIR "ISmyPCokWinUI.exe"),
             (Join-Path $env:WINUI_APP_DIR "ispcok_capi.dll")
           )
@@ -203,7 +240,7 @@ jobs:
           Get-Content "$proj\ISmyPCok.WinUI\x64\Release\ISmyPCok.WinUI.vcxproj.mdmerge.rsp" -ErrorAction SilentlyContinue
 
       - name: Package CLI artifact
-        if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        if: github.event_name == 'pull_request' || steps.check.outputs.exists != 'true'
         shell: pwsh
         run: |
           $tag = "${{ steps.version.outputs.version }}"
@@ -212,6 +249,8 @@ jobs:
             "build/Release/ispcok_cli.exe",
             "build/Release/ispcok_capi.dll",
             "build/Release/ispcok_plugin_gpu_vulkan_sample.dll",
+            "build/Release/ispcok_plugin_gpu_dx12.dll",
+            "build/Release/ispcok_plugin_npu.dll",
             "build/Release/pc_benchmark.exe",
             "build/Release/msvcp140.dll",
             "build/Release/vcruntime140.dll",
@@ -222,7 +261,7 @@ jobs:
           Write-Output "PACKAGE_CLI=$zipName" >> $env:GITHUB_ENV
 
       - name: Smoke test packaged CLI (list + benchmark run)
-        if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        if: github.event_name == 'pull_request' || steps.check.outputs.exists != 'true'
         shell: pwsh
         run: |
           $tag = "${{ steps.version.outputs.version }}"
@@ -234,6 +273,9 @@ jobs:
           Write-Output "=== verify VC runtime DLLs are bundled ==="
           foreach ($dll in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
             if (-not (Test-Path "$staging\$dll")) { throw "Missing bundled runtime DLL: $dll" }
+          }
+          foreach ($plugin in @("ispcok_plugin_gpu_dx12.dll", "ispcok_plugin_npu.dll")) {
+            if (-not (Test-Path "$staging\$plugin")) { throw "Missing packaged accelerator plugin: $plugin" }
           }
 
           Write-Output "=== ispcok_cli list-modules ==="
@@ -258,7 +300,7 @@ jobs:
           Write-Output "SMOKE TEST OK"
 
       - name: Package WinUI artifact
-        if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        if: github.event_name == 'pull_request' || steps.check.outputs.exists != 'true'
         shell: pwsh
         run: |
           $tag = "${{ steps.version.outputs.version }}"
@@ -270,6 +312,9 @@ jobs:
           $runtimeFiles = @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")
           foreach ($dll in $runtimeFiles) {
             Copy-Item build\Release\$dll $appDir -Force
+          }
+          foreach ($plugin in @("ispcok_plugin_gpu_dx12.dll", "ispcok_plugin_npu.dll")) {
+            Copy-Item build\Release\$plugin $appDir -Force
           }
           $requiredFiles = @(
             "ISmyPCokWinUI.exe",
@@ -284,7 +329,9 @@ jobs:
             "Microsoft.WindowsAppRuntime.Bootstrap.dll",
             "msvcp140.dll",
             "vcruntime140.dll",
-            "vcruntime140_1.dll"
+            "vcruntime140_1.dll",
+            "ispcok_plugin_gpu_dx12.dll",
+            "ispcok_plugin_npu.dll"
           )
           foreach ($file in $requiredFiles) {
             if (-not (Test-Path (Join-Path $appDir $file))) {
@@ -295,7 +342,7 @@ jobs:
           Write-Output "PACKAGE_WINUI=$zipName" >> $env:GITHUB_ENV
 
       - name: Smoke test packaged WinUI (startup + window activation)
-        if: github.event_name == 'push' && steps.check.outputs.exists != 'true'
+        if: github.event_name == 'pull_request' || steps.check.outputs.exists != 'true'
         continue-on-error: true
         shell: pwsh
         run: |

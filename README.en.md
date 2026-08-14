@@ -33,7 +33,9 @@ A PC performance toolkit (C++ / CMake) built on top of [chronoxor/CppBenchmark](
 - `xpu`
 <!-- MODULE_LIST_END -->
 
-- Note: some modules can return `not_implemented` or `not_supported` depending on build flags/hardware.
+- Note: accelerator modules can return `not_supported` depending on build flags, Windows APIs, drivers, and available hardware.
+
+Windows builds provide real `gpu_dx12` and `npu` plugins. `gpu_dx12` runs an FP32 Direct3D 12 compute workload. `npu` runs an FP16 DirectML workload only on a non-graphics DXCore ML/Core Compute adapter. The WinUI application renders scenario and module results as a card-based dashboard and retains expandable raw JSON for diagnostics.
 
 ## Scenario Scoring (Initial)
 

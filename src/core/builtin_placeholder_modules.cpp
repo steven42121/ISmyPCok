@@ -51,8 +51,8 @@ std::vector<ModulePtr> CreateBuiltinPlaceholderModules()
     modules.emplace_back(std::make_shared<PlaceholderModule>("cuda", "gpu", "not_supported", "cuda: backend not compiled (CUDA toolkit required)"));
     modules.emplace_back(std::make_shared<PlaceholderModule>("hip", "gpu", "not_supported", "hip: backend not compiled (HIP runtime required)"));
     modules.emplace_back(std::make_shared<PlaceholderModule>("xpu", "gpu", "not_supported", "xpu: backend not compiled (Level Zero loader required)"));
-    modules.emplace_back(std::make_shared<PlaceholderModule>("gpu_dx12", "gpu", "not_implemented", "Planned: DX12 graphics benchmark"));
-    modules.emplace_back(std::make_shared<PlaceholderModule>("npu", "npu", "not_implemented", "Planned: NPU inference benchmark"));
+    modules.emplace_back(std::make_shared<PlaceholderModule>("gpu_dx12", "gpu", "not_supported", "gpu_dx12: backend not compiled (Windows D3D12 SDK required)"));
+    modules.emplace_back(std::make_shared<PlaceholderModule>("npu", "npu", "not_supported", "npu: backend not compiled (Windows DXCore and DirectML SDK required)"));
     return modules;
 }
 
