@@ -107,14 +107,29 @@ jobs:
           if (-not $vsPath) { throw "Visual Studio install path not found" }
           $redistRoot = Join-Path $vsPath "VC\Redist\MSVC"
           if (-not (Test-Path $redistRoot)) { throw "VC redistributable folder not found: $redistRoot" }
+          $versions = Get-ChildItem -Path $redistRoot -Directory -ErrorAction SilentlyContinue |
+            Sort-Object -Property { if ($_.Name -match '^\d+\.\d+\.\d+$') { [version]$_.Name } else { [version]'0.0.0' } } -Descending
+          $crtRoot = $null
+          foreach ($ver in $versions) {
+            $candidates = @(
+              (Join-Path $ver.FullName "x64\Microsoft.VC143.CRT"),
+              (Join-Path $ver.FullName "x64\Microsoft.VC142.CRT")
+            )
+            foreach ($cand in $candidates) {
+              if (Test-Path (Join-Path $cand "msvcp140.dll")) {
+                $crtRoot = $cand
+                break
+              }
+            }
+            if ($crtRoot) { break }
+          }
+          if (-not $crtRoot) { throw "No desktop VC143/VC142 CRT found under $redistRoot" }
           $dlls = @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")
           foreach ($dll in $dlls) {
-            $found = Get-ChildItem -Path $redistRoot -Filter $dll -Recurse -ErrorAction SilentlyContinue |
-              Where-Object { $_.DirectoryName -match '\\x64\\' } |
-              Select-Object -First 1
-            if (-not $found) { throw "Missing VC runtime: $dll under $redistRoot" }
-            Copy-Item $found.FullName build\Release\ -Force
-            Write-Output "Copied $($found.FullName)"
+            $found = Join-Path $crtRoot $dll
+            if (-not (Test-Path $found)) { throw "Missing VC runtime: $dll in $crtRoot" }
+            Copy-Item $found build\Release\ -Force
+            Write-Output "Copied $found"
           }
           Write-Output "Copied VC runtime DLLs to build\Release"
 
@@ -309,10 +324,6 @@ jobs:
           if (-not $appDir -or -not (Test-Path (Join-Path $appDir "ISmyPCokWinUI.exe"))) {
             throw "WinUI application directory is invalid: $appDir"
           }
-          $runtimeFiles = @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")
-          foreach ($dll in $runtimeFiles) {
-            Copy-Item build\Release\$dll $appDir -Force
-          }
           foreach ($plugin in @("ispcok_plugin_gpu_dx12.dll", "ispcok_plugin_npu.dll")) {
             Copy-Item build\Release\$plugin $appDir -Force
           }
@@ -327,9 +338,6 @@ jobs:
             "Microsoft.UI.Xaml.Controls.pri",
             "Microsoft.WindowsAppRuntime.dll",
             "Microsoft.WindowsAppRuntime.Bootstrap.dll",
-            "msvcp140.dll",
-            "vcruntime140.dll",
-            "vcruntime140_1.dll",
             "ispcok_plugin_gpu_dx12.dll",
             "ispcok_plugin_npu.dll"
           )
@@ -343,7 +351,6 @@ jobs:
 
       - name: Smoke test packaged WinUI (startup + window activation)
         if: github.event_name == 'pull_request' || steps.check.outputs.exists != 'true'
-        continue-on-error: true
         shell: pwsh
         run: |
           $tag = "${{ steps.version.outputs.version }}"
