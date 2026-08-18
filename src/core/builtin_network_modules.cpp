@@ -429,7 +429,7 @@ public:
         result.status = "ok";
         result.metrics["mibps"] = mibps;
         result.metrics["elapsed_s"] = elapsed_s;
-        result.score = ClampScore(mibps / 25.0);
+        result.score = ClampScore(mibps / 100.0);
         result.message = "TCP loopback bandwidth";
         return result;
     }

@@ -67,7 +67,7 @@ public:
 
         result.metrics["write_mibps"] = write_mibs;
         result.metrics["read_mibps"] = read_mibs;
-        result.score = ClampScore((write_mibs + read_mibs) / 20.0);
+        result.score = ClampScore((write_mibs + read_mibs) / 60.0);
         result.message = "Temporary file sequential throughput";
         return result;
     }
@@ -120,7 +120,7 @@ public:
         const double elapsed = std::chrono::duration<double>(end - start).count();
         const double iops = static_cast<double>(blocks) / std::max(elapsed, 0.000001);
         result.metrics["rand_read_iops_4k"] = iops;
-        result.score = ClampScore(iops / 300.0);
+        result.score = ClampScore(iops / 3000.0);
         result.message = "Temporary file random read IOPS (4K)";
         return result;
     }

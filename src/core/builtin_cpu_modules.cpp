@@ -1,4 +1,5 @@
 #include "core/builtin_module_factories.h"
+#include "core/thread_util.h"
 
 #include <algorithm>
 #include <chrono>
@@ -26,6 +27,8 @@ double ClampScore(double value)
     return value;
 }
 
+constexpr double kTargetSeconds = 2.0;
+
 class CpuFp32Module final : public IModule
 {
 public:
@@ -39,22 +42,35 @@ public:
         result.category = category();
         result.status = "ok";
 
-        constexpr std::uint64_t iterations = 50'000'000ULL;
-        volatile float acc = 1.0f;
-        const auto start = std::chrono::high_resolution_clock::now();
-        for (std::uint64_t i = 0; i < iterations; ++i)
+        const unsigned threads = CpuWorkerCount();
+        auto work = [](std::uint64_t iterations) -> double
         {
-            acc = acc * 1.000001f + 0.000001f;
-            if (acc > 10.0f)
-                acc = 1.0f;
-        }
-        const auto end = std::chrono::high_resolution_clock::now();
-        const auto elapsed = std::chrono::duration<double>(end - start).count();
-        const double mops = (static_cast<double>(iterations) / 1'000'000.0) / elapsed;
+            volatile float acc = 1.0f;
+            for (std::uint64_t i = 0; i < iterations; ++i)
+            {
+                acc = acc * 1.000001f + 0.000001f;
+                if (acc > 10.0f)
+                    acc = 1.0f;
+            }
+            return acc;
+        };
+
+        const double per_sec = CalibratePerSecond(work, 1'000'000ULL);
+        const std::uint64_t per_thread = static_cast<std::uint64_t>(per_sec * kTargetSeconds) + 1;
+
+        std::vector<double> checksums(threads, 0.0);
+        const double elapsed = RunParallel(threads, [&](unsigned t)
+        {
+            checksums[t] = work(per_thread);
+        });
+        const double total_ops = static_cast<double>(per_thread) * threads;
+        const double mops = (total_ops / 1'000'000.0) / elapsed;
 
         result.metrics["mops"] = mops;
         result.metrics["elapsed_s"] = elapsed;
-        result.score = ClampScore(mops / 1.8);
+        result.metrics["threads"] = static_cast<double>(threads);
+        result.metrics["checksum"] = checksums[0];
+        result.score = ClampScore(mops / 40.0);
         result.message = "FP32 loop throughput";
         return result;
     }
@@ -73,24 +89,36 @@ public:
         result.category = category();
         result.status = "ok";
 
-        constexpr std::uint64_t iterations = 120'000'000ULL;
-        std::uint64_t x = 0x123456789abcdef0ULL;
-        const auto start = std::chrono::high_resolution_clock::now();
-        for (std::uint64_t i = 0; i < iterations; ++i)
+        const unsigned threads = CpuWorkerCount();
+        auto work = [](std::uint64_t iterations) -> double
         {
-            x ^= x << 13;
-            x ^= x >> 7;
-            x ^= x << 17;
-            x += i;
-        }
-        const auto end = std::chrono::high_resolution_clock::now();
-        const double elapsed = std::chrono::duration<double>(end - start).count();
-        const double mops = (static_cast<double>(iterations) / 1'000'000.0) / std::max(elapsed, 0.000001);
+            std::uint64_t x = 0x123456789abcdef0ULL;
+            for (std::uint64_t i = 0; i < iterations; ++i)
+            {
+                x ^= x << 13;
+                x ^= x >> 7;
+                x ^= x << 17;
+                x += i;
+            }
+            return static_cast<double>(x & 0xFFFFFFFFULL);
+        };
+
+        const double per_sec = CalibratePerSecond(work, 2'000'000ULL);
+        const std::uint64_t per_thread = static_cast<std::uint64_t>(per_sec * kTargetSeconds) + 1;
+
+        std::vector<double> checksums(threads, 0.0);
+        const double elapsed = RunParallel(threads, [&](unsigned t)
+        {
+            checksums[t] = work(per_thread);
+        });
+        const double total_ops = static_cast<double>(per_thread) * threads;
+        const double mops = (total_ops / 1'000'000.0) / elapsed;
 
         result.metrics["mops"] = mops;
-        result.metrics["checksum"] = static_cast<double>(x & 0xFFFFFFFFULL);
         result.metrics["elapsed_s"] = elapsed;
-        result.score = ClampScore(mops / 3.2);
+        result.metrics["threads"] = static_cast<double>(threads);
+        result.metrics["checksum"] = checksums[0];
+        result.score = ClampScore(mops / 100.0);
         result.message = "Scalar integer throughput";
         return result;
     }
@@ -109,45 +137,109 @@ public:
         result.category = category();
         result.status = "ok";
 
-        constexpr std::size_t n = 16 * 1024 * 1024;
-        std::vector<std::uint8_t> random_bits(n);
-        std::mt19937 rng(1234);
-        std::uniform_int_distribution<int> dist(0, 1);
-        for (std::size_t i = 0; i < n; ++i)
-            random_bits[i] = static_cast<std::uint8_t>(dist(rng));
-
-        volatile std::uint64_t sum_random = 0;
-        volatile std::uint64_t sum_predictable = 0;
-
-        const auto start_random = std::chrono::high_resolution_clock::now();
-        for (std::size_t i = 0; i < n; ++i)
+        const unsigned threads = CpuWorkerCount();
+        constexpr std::size_t per_thread_n = 16 * 1024 * 1024;
+        std::vector<std::vector<std::uint8_t>> random_bits(threads);
+        for (unsigned t = 0; t < threads; ++t)
         {
-            if (random_bits[i] == 0)
-                sum_random += i;
-            else
-                sum_random += (i ^ 0x55u);
+            random_bits[t].resize(per_thread_n);
+            std::mt19937 rng(1234 + t);
+            std::uniform_int_distribution<int> dist(0, 1);
+            for (std::size_t i = 0; i < per_thread_n; ++i)
+                random_bits[t][i] = static_cast<std::uint8_t>(dist(rng));
         }
-        const auto end_random = std::chrono::high_resolution_clock::now();
 
-        const auto start_predictable = std::chrono::high_resolution_clock::now();
-        for (std::size_t i = 0; i < n; ++i)
+        auto run_random = [&random_bits](std::uint64_t rounds) -> double
         {
-            if ((i & 1023u) != 0)
-                sum_predictable += i;
-            else
-                sum_predictable += (i ^ 0xAAu);
-        }
-        const auto end_predictable = std::chrono::high_resolution_clock::now();
+            volatile double sum = 0.0;
+            for (std::uint64_t r = 0; r < rounds; ++r)
+            {
+                volatile std::uint64_t acc = 0;
+                const std::vector<std::uint8_t>& bits = random_bits[0];
+                for (std::size_t i = 0; i < bits.size(); ++i)
+                {
+                    if (bits[i] == 0)
+                        acc += i;
+                    else
+                        acc += (i ^ 0x55u);
+                }
+                sum += static_cast<double>(acc);
+            }
+            return sum;
+        };
 
-        const double random_s = std::chrono::duration<double>(end_random - start_random).count();
-        const double predictable_s = std::chrono::duration<double>(end_predictable - start_predictable).count();
+        auto run_predictable = [per_thread_n](std::uint64_t rounds) -> double
+        {
+            volatile double sum = 0.0;
+            for (std::uint64_t r = 0; r < rounds; ++r)
+            {
+                volatile std::uint64_t acc = 0;
+                for (std::size_t i = 0; i < per_thread_n; ++i)
+                {
+                    if ((i & 1023u) != 0)
+                        acc += i;
+                    else
+                        acc += (i ^ 0xAAu);
+                }
+                sum += static_cast<double>(acc);
+            }
+            return sum;
+        };
+
+        const double random_round_s = 1.0 / std::max(CalibratePerSecond(run_random, 1ULL), 1e-9);
+        const double predictable_round_s = 1.0 / std::max(CalibratePerSecond(run_predictable, 1ULL), 1e-9);
+        const std::uint64_t rounds = static_cast<std::uint64_t>(kTargetSeconds / std::max(random_round_s, predictable_round_s)) + 1;
+
+        std::vector<double> random_checks(threads, 0.0);
+        const double random_s = RunParallel(threads, [&](unsigned t)
+        {
+            volatile double sum = 0.0;
+            for (std::uint64_t r = 0; r < rounds; ++r)
+            {
+                volatile std::uint64_t acc = 0;
+                const std::vector<std::uint8_t>& bits = random_bits[t];
+                for (std::size_t i = 0; i < bits.size(); ++i)
+                {
+                    if (bits[i] == 0)
+                        acc += i;
+                    else
+                        acc += (i ^ 0x55u);
+                }
+                sum += static_cast<double>(acc);
+            }
+            random_checks[t] = sum;
+        });
+
+        std::vector<double> predictable_checks(threads, 0.0);
+        const double predictable_s = RunParallel(threads, [&](unsigned t)
+        {
+            volatile double sum = 0.0;
+            for (std::uint64_t r = 0; r < rounds; ++r)
+            {
+                volatile std::uint64_t acc = 0;
+                for (std::size_t i = 0; i < per_thread_n; ++i)
+                {
+                    if ((i & 1023u) != 0)
+                        acc += i;
+                    else
+                        acc += (i ^ 0xAAu);
+                }
+                sum += static_cast<double>(acc);
+            }
+            predictable_checks[t] = sum;
+        });
+
         const double penalty = random_s / std::max(predictable_s, 0.000001);
+        double checksum = 0.0;
+        for (unsigned t = 0; t < threads; ++t)
+            checksum += random_checks[t] + predictable_checks[t];
 
         result.metrics["random_branch_s"] = random_s;
         result.metrics["predictable_branch_s"] = predictable_s;
         result.metrics["penalty_ratio"] = penalty;
-        result.metrics["checksum"] = static_cast<double>((sum_random ^ sum_predictable) & 0xFFFFFFFFULL);
-        result.score = ClampScore(120.0 - penalty * 40.0);
+        result.metrics["threads"] = static_cast<double>(threads);
+        result.metrics["checksum"] = checksum;
+        result.score = ClampScore(100.0 - (penalty - 1.0) * 30.0);
         result.message = "Branch predictability sensitivity";
         return result;
     }
@@ -177,32 +269,41 @@ public:
             return result;
         }
 
-        alignas(32) float a[8] = {1, 2, 3, 4, 5, 6, 7, 8};
-        alignas(32) float b[8] = {8, 7, 6, 5, 4, 3, 2, 1};
-        __m256 va = _mm256_load_ps(a);
-        __m256 vb = _mm256_load_ps(b);
-        __m256 vc = _mm256_set1_ps(1.000001f);
-        constexpr std::uint64_t iterations = 50'000'000ULL;
-
-        const auto start = std::chrono::high_resolution_clock::now();
-        for (std::uint64_t i = 0; i < iterations; ++i)
+        const unsigned threads = CpuWorkerCount();
+        auto work = [](std::uint64_t iterations) -> double
         {
-            va = _mm256_add_ps(va, _mm256_mul_ps(vb, vc));
-            vb = _mm256_sub_ps(vb, _mm256_mul_ps(va, vc));
-        }
-        const auto end = std::chrono::high_resolution_clock::now();
+            alignas(32) float a[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+            alignas(32) float b[8] = {8, 7, 6, 5, 4, 3, 2, 1};
+            __m256 va = _mm256_load_ps(a);
+            __m256 vb = _mm256_load_ps(b);
+            __m256 vc = _mm256_set1_ps(1.000001f);
+            for (std::uint64_t i = 0; i < iterations; ++i)
+            {
+                va = _mm256_add_ps(va, _mm256_mul_ps(vb, vc));
+                vb = _mm256_sub_ps(vb, _mm256_mul_ps(va, vc));
+            }
+            alignas(32) float out[8];
+            _mm256_store_ps(out, va);
+            return out[0];
+        };
 
-        alignas(32) float out[8];
-        _mm256_store_ps(out, va);
-        const double elapsed = std::chrono::duration<double>(end - start).count();
-        const double vector_ops = static_cast<double>(iterations) * 8.0;
-        const double mops = (vector_ops / 1'000'000.0) / std::max(elapsed, 0.000001);
+        const double per_sec = CalibratePerSecond(work, 500'000ULL);
+        const std::uint64_t per_thread = static_cast<std::uint64_t>(per_sec * kTargetSeconds) + 1;
+
+        std::vector<double> checksums(threads, 0.0);
+        const double elapsed = RunParallel(threads, [&](unsigned t)
+        {
+            checksums[t] = work(per_thread);
+        });
+        const double vector_ops = static_cast<double>(per_thread) * threads * 8.0;
+        const double mops = (vector_ops / 1'000'000.0) / elapsed;
 
         result.status = "ok";
         result.metrics["mops"] = mops;
         result.metrics["elapsed_s"] = elapsed;
-        result.metrics["checksum"] = out[0];
-        result.score = ClampScore(mops / 6.0);
+        result.metrics["threads"] = static_cast<double>(threads);
+        result.metrics["checksum"] = checksums[0];
+        result.score = ClampScore(mops / 240.0);
         result.message = "AVX2 vector FP throughput";
         return result;
 #endif
@@ -257,38 +358,48 @@ public:
             return result;
         }
 
-        alignas(64) float a[16];
-        alignas(64) float b[16];
-        for (int i = 0; i < 16; ++i)
+        const unsigned threads = CpuWorkerCount();
+        auto work = [](std::uint64_t iterations) -> double
         {
-            a[i] = static_cast<float>(i + 1);
-            b[i] = static_cast<float>(16 - i);
-        }
+            alignas(64) float a[16];
+            alignas(64) float b[16];
+            for (int i = 0; i < 16; ++i)
+            {
+                a[i] = static_cast<float>(i + 1);
+                b[i] = static_cast<float>(16 - i);
+            }
 
-        __m512 va = _mm512_load_ps(a);
-        __m512 vb = _mm512_load_ps(b);
-        __m512 vc = _mm512_set1_ps(1.0000005f);
-        constexpr std::uint64_t iterations = 40'000'000ULL;
+            __m512 va = _mm512_load_ps(a);
+            __m512 vb = _mm512_load_ps(b);
+            __m512 vc = _mm512_set1_ps(1.0000005f);
+            for (std::uint64_t i = 0; i < iterations; ++i)
+            {
+                va = _mm512_fmadd_ps(vb, vc, va);
+                vb = _mm512_fnmadd_ps(va, vc, vb);
+            }
 
-        const auto start = std::chrono::high_resolution_clock::now();
-        for (std::uint64_t i = 0; i < iterations; ++i)
+            alignas(64) float out[16];
+            _mm512_store_ps(out, va);
+            return out[0];
+        };
+
+        const double per_sec = CalibratePerSecond(work, 500'000ULL);
+        const std::uint64_t per_thread = static_cast<std::uint64_t>(per_sec * kTargetSeconds) + 1;
+
+        std::vector<double> checksums(threads, 0.0);
+        const double elapsed = RunParallel(threads, [&](unsigned t)
         {
-            va = _mm512_fmadd_ps(vb, vc, va);
-            vb = _mm512_fnmadd_ps(va, vc, vb);
-        }
-        const auto end = std::chrono::high_resolution_clock::now();
-
-        alignas(64) float out[16];
-        _mm512_store_ps(out, va);
-        const double elapsed = std::chrono::duration<double>(end - start).count();
-        const double vector_ops = static_cast<double>(iterations) * 16.0;
-        const double mops = (vector_ops / 1'000'000.0) / std::max(elapsed, 0.000001);
+            checksums[t] = work(per_thread);
+        });
+        const double vector_ops = static_cast<double>(per_thread) * threads * 16.0;
+        const double mops = (vector_ops / 1'000'000.0) / elapsed;
 
         result.status = "ok";
         result.metrics["mops"] = mops;
         result.metrics["elapsed_s"] = elapsed;
-        result.metrics["checksum"] = out[0];
-        result.score = ClampScore(mops / 10.0);
+        result.metrics["threads"] = static_cast<double>(threads);
+        result.metrics["checksum"] = checksums[0];
+        result.score = ClampScore(mops / 480.0);
         result.message = "AVX-512 vector FP throughput";
         return result;
 #endif
